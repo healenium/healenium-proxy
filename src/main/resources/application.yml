@@ -1,0 +1,7 @@
+server:
+  port: ${SPRING_SERVER_PORT:8085}
+spring:
+  banner:
+    image:
+      location:
+        /images/banner.png

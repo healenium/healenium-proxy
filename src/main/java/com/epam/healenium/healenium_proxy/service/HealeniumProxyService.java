@@ -1,6 +1,6 @@
-package com.epam.healenium.HealeniumProxy.service;
+package com.epam.healenium.healenium_proxy.service;
 
-import com.epam.healenium.HealeniumProxy.util.HealeniumProxyUtils;
+import com.epam.healenium.healenium_proxy.util.impl.HealeniumProxyUtilsImpl;
 import com.epam.healenium.SelfHealingDriver;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.HttpEntity;
@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 
 public class HealeniumProxyService {
     private static final Logger LOGGER = LogManager.getLogger(HealeniumProxyService.class);
-    private static final HealeniumProxyUtils utils = new HealeniumProxyUtils();
+    private static final HealeniumProxyUtilsImpl utils = new HealeniumProxyUtilsImpl();
 
     public static final Map<String, BiFunction<String, HttpServletRequest, String>> REQ_MAP =
             ImmutableMap.<String, BiFunction<String, HttpServletRequest, String>>builder()

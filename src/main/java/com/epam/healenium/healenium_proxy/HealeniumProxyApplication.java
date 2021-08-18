@@ -1,4 +1,4 @@
-package com.epam.healenium.HealeniumProxy;
+package com.epam.healenium.healenium_proxy;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

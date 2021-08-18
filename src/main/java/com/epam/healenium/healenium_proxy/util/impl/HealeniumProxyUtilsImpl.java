@@ -1,5 +1,6 @@
-package com.epam.healenium.HealeniumProxy.util;
+package com.epam.healenium.healenium_proxy.util.impl;
 
+import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
 import org.json.JSONObject;
 import org.openqa.selenium.remote.Command;
 import org.openqa.selenium.remote.CommandExecutor;
@@ -20,16 +21,7 @@ import java.net.URL;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
-public class HealeniumProxyUtils {
-    /**
-     * Pattern to determining the required requests types
-     * /session/any letters from a to f, any digits from 0 to 9, symbol -, length between 32 and 36/element
-     */
-    private static final String HEALING_REGEX = "^/(session)/(([a-f0-9-]){32,36})/(element|elements)$";
-    private static final String WEB_ELEMENT_PATTERN =
-            "{\"sessionId\":\"%s\",\"status\":0,\"value\":{\"ELEMENT\":\"%s\"}}";
-    private static final String SELENIUM_EXECUTOR = "http://127.0.0.1:4444/wd/hub";
-
+public class HealeniumProxyUtilsImpl implements HealeniumProxyUtils {
     public String getHealingRegex() {
         return HEALING_REGEX;
     }
