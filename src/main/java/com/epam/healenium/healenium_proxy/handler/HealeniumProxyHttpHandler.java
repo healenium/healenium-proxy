@@ -1,7 +1,7 @@
 package com.epam.healenium.healenium_proxy.handler;
 
 import com.epam.healenium.healenium_proxy.service.HealeniumProxyService;
-import com.epam.healenium.healenium_proxy.util.impl.HealeniumProxyUtilsImpl;
+import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
 import org.springframework.web.HttpRequestHandler;
 
 import javax.servlet.http.HttpServletRequest;
@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 public class HealeniumProxyHttpHandler implements HttpRequestHandler {
-    private static final HealeniumProxyUtilsImpl utils = new HealeniumProxyUtilsImpl();
+    private static final HealeniumProxyUtils utils = new HealeniumProxyUtils();
 
     @Override
     public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
