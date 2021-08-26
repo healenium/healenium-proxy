@@ -1,6 +1,9 @@
 package com.epam.healenium.healenium_proxy.constants;
 
 public class Constants {
+
+    private Constants() {}
+
     /**
      * Pattern to determining the required requests types
      * /session/any letters from a to f, any digits from 0 to 9, symbol -, length between 32 and 36/element

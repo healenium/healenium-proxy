@@ -1,7 +1,9 @@
 package com.epam.healenium.healenium_proxy.service;
 
 import com.epam.healenium.SelfHealingDriver;
+import com.epam.healenium.healenium_proxy.constants.Constants;
 import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
+import com.epam.healenium.healenium_proxy.util.HealeniumProxyWebDriverUtils;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -34,7 +36,6 @@ import java.util.regex.Pattern;
 
 public class HealeniumProxyService {
     private static final Logger LOGGER = LogManager.getLogger(HealeniumProxyService.class);
-    private static final HealeniumProxyUtils utils = new HealeniumProxyUtils();
     private static SelfHealingDriver selfHealingDriver;
 
     public static final Map<String, BiFunction<String, HttpServletRequest, String>> REQ_MAP =
@@ -68,11 +69,11 @@ public class HealeniumProxyService {
      * @return
      */
     private static String executePostRequest(HttpPost httpPost, HttpServletRequest request) {
-        String requestBody = utils.getRequestBody(request);
+        String requestBody = HealeniumProxyUtils.getRequestBody(request);
         String uri = request.getRequestURI();
 
-        if (Pattern.matches(utils.getHealingRegex(), uri)) {
-            SessionId currentSessionId = utils.getCurrentSessionId(request);
+        if (Pattern.matches(Constants.HEALING_REGEX, uri)) {
+            SessionId currentSessionId = HealeniumProxyUtils.getCurrentSessionId(request);
             RemoteWebDriver restoredWebDriverFromSession;
             WebElement currentWebElement = null;
             List<WebElement> currentWebElements = null;
@@ -80,20 +81,23 @@ public class HealeniumProxyService {
 
             try {
                 restoredWebDriverFromSession =
-                        utils.restoreWebDriverFromSession(new URL(utils.getSeleniumExecutor()), currentSessionId);
+                        HealeniumProxyWebDriverUtils.restoreWebDriverFromSession(
+                                new URL(Constants.SELENIUM_EXECUTOR),
+                                currentSessionId
+                        );
                 selfHealingDriver = SelfHealingDriver.create(restoredWebDriverFromSession);
                 if (uri.contains("elements")) {
                     currentWebElements =
                             BY_MAP_ELEMENTS
-                                    .get(utils.getUsingFromRequest(requestBody))
-                                    .apply(utils.getValueFromRequest(requestBody));
-                    response = utils.generateResponse(currentWebElements);
+                                    .get(HealeniumProxyUtils.getUsingFromRequest(requestBody))
+                                    .apply(HealeniumProxyUtils.getValueFromRequest(requestBody));
+                    response = HealeniumProxyUtils.generateResponse(currentWebElements);
                 } else {
                     currentWebElement =
                             BY_MAP_ELEMENT
-                                    .get(utils.getUsingFromRequest(requestBody))
-                                    .apply(utils.getValueFromRequest(requestBody));
-                    response = utils.generateResponse(currentWebElement);
+                                    .get(HealeniumProxyUtils.getUsingFromRequest(requestBody))
+                                    .apply(HealeniumProxyUtils.getValueFromRequest(requestBody));
+                    response = HealeniumProxyUtils.generateResponse(currentWebElement);
                 }
             } catch (MalformedURLException | ClassCastException e) {
                 LOGGER.error(e.getMessage(), e);
