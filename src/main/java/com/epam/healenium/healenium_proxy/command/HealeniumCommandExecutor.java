@@ -16,7 +16,7 @@ import java.util.Collections;
 @Slf4j
 public class HealeniumCommandExecutor extends HttpCommandExecutor {
 
-    private SessionId sessionId;
+    private final SessionId sessionId;
 
     public HealeniumCommandExecutor(URL addressOfRemoteServer, SessionId sessionId) {
         super(addressOfRemoteServer);

@@ -9,13 +9,11 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.epam.healenium</groupId>
-	<artifactId>HealeniumProxy</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>HealeniumProxy</name>
+	<artifactId>healenium-proxy</artifactId>
+	<version>1.0</version>
+	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
-	<properties>
-		<java.version>11</java.version>
-	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

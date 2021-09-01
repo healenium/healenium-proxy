@@ -7,6 +7,7 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -20,7 +21,7 @@ public class HealeniumBaseRequest {
         httpRequest.setHeader("Content-type", "application/json");
         CloseableHttpClient client = HttpClients.createDefault();
         CloseableHttpResponse response;
-        String responseData = "";
+        String responseData = Strings.EMPTY;
 
         try {
             response = client.execute(httpRequest);
