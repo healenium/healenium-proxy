@@ -10,7 +10,13 @@ import javax.servlet.http.HttpServletRequest;
 
 @Slf4j
 @Service
-public class HealeniumDeleteRequest extends HealeniumGetRequest implements HealeniumHttpRequest {
+public class HealeniumDeleteRequest implements HealeniumHttpRequest {
+
+    private final HealeniumBaseRequest healeniumBaseRequest;
+
+    public HealeniumDeleteRequest(HealeniumBaseRequest healeniumBaseRequest) {
+        this.healeniumBaseRequest = healeniumBaseRequest;
+    }
 
     @Override
     public String getType() {
@@ -20,6 +26,6 @@ public class HealeniumDeleteRequest extends HealeniumGetRequest implements Heale
     @Override
     public String execute(String uri, HttpServletRequest request) {
         HttpRequestBase httpDelete = new HttpDelete(uri);
-        return executeRequest(httpDelete);
+        return healeniumBaseRequest.executeBaseRequest(httpDelete);
     }
 }

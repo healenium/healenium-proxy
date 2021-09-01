@@ -48,8 +48,13 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
                     .put("css selector", By::cssSelector)
                     .build();
 
-    @Autowired
-    private HealeniumProxyUtils proxyUtils;
+    private final HealeniumProxyUtils proxyUtils;
+    private final HealeniumBaseRequest healeniumBaseRequest;
+
+    public HealeniumPostRequest(HealeniumProxyUtils proxyUtils, HealeniumBaseRequest healeniumBaseRequest) {
+        this.proxyUtils = proxyUtils;
+        this.healeniumBaseRequest = healeniumBaseRequest;
+    }
 
     @Override
     public String getType() {
@@ -86,20 +91,7 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
         }
         httpPost.setEntity(entity);
 
-        httpPost.setHeader("Content-type", "application/json");
-        CloseableHttpClient client = HttpClients.createDefault();
-        CloseableHttpResponse httpResponse;
-        String responseData = "";
-
-        try {
-            httpResponse = client.execute(httpPost);
-            HttpEntity entityResponse = httpResponse.getEntity();
-            responseData = EntityUtils.toString(entityResponse, StandardCharsets.UTF_8);
-            client.close();
-        } catch (IOException e) {
-            log.error("Error during execute Post Request. Message: {}, Exception: {}", e.getMessage(), e);
-        }
-        return responseData;
+        return healeniumBaseRequest.executeBaseRequest(httpPost);
     }
 
     private RemoteWebDriver restoreWebDriverFromSession(URL commandExecutor, SessionId sessionId) {
