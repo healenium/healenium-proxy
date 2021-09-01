@@ -3,8 +3,6 @@ package com.epam.healenium.healenium_proxy.handler;
 import com.epam.healenium.healenium_proxy.constants.Constants;
 import com.epam.healenium.healenium_proxy.service.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.service.HealeniumHttpRequestFactory;
-import com.epam.healenium.healenium_proxy.service.HealeniumProxyService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.HttpRequestHandler;
 
 import javax.servlet.http.HttpServletRequest;

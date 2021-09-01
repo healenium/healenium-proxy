@@ -18,15 +18,14 @@ public class HealeniumHttpRequestFactory {
 
     @PostConstruct
     public void initMyServiceCache() {
-        for(HealeniumHttpRequest service : healeniumHttpRequests) {
+        for (HealeniumHttpRequest service : healeniumHttpRequests) {
             healeniumHttpRequestsCache.put(service.getType(), service);
         }
     }
 
     public static HealeniumHttpRequest getRequest(String type) {
         HealeniumHttpRequest service = healeniumHttpRequestsCache.get(type);
-        if(service == null) throw new RuntimeException("Unknown request type: " + type);
+        if (service == null) throw new RuntimeException("Unknown request type: " + type);
         return service;
     }
-
 }
