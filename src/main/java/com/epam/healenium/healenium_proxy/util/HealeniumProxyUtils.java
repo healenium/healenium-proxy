@@ -1,13 +1,12 @@
 package com.epam.healenium.healenium_proxy.util;
 
 import com.epam.healenium.healenium_proxy.constants.Constants;
-import lombok.experimental.UtilityClass;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebElement;
 import org.openqa.selenium.remote.SessionId;
+import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
@@ -17,9 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@UtilityClass
+@Component
+@Slf4j
 public class HealeniumProxyUtils {
-    private static final Logger LOGGER = LogManager.getLogger(HealeniumProxyUtils.class);
     /**
      * Get request body from request
      *
@@ -29,10 +28,10 @@ public class HealeniumProxyUtils {
     public String getRequestBody(HttpServletRequest request) {
         String requestBody = "";
         try {
-            return new BufferedReader(new InputStreamReader(request.getInputStream()))
+            requestBody = new BufferedReader(new InputStreamReader(request.getInputStream()))
                     .lines().collect(Collectors.joining(""));
         } catch (IOException e) {
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         }
         return requestBody;
     }
