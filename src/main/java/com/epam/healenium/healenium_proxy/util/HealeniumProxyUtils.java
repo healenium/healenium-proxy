@@ -1,8 +1,10 @@
 package com.epam.healenium.healenium_proxy.util;
 
 import com.epam.healenium.healenium_proxy.constants.Constants;
+import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebElement;
 import org.openqa.selenium.remote.SessionId;
@@ -14,11 +16,22 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
 @Slf4j
 public class HealeniumProxyUtils {
+
+    public static final Map<String, Function<String, By>> BY_MAP_ELEMENT =
+            ImmutableMap.<String, Function<String, By>>builder()
+                    .put("xpath", By::xpath)
+                    .put("link text", By::linkText)
+                    .put("partial link text", By::partialLinkText)
+                    .put("css selector", By::cssSelector)
+                    .build();
+
     /**
      * Get request body from request
      *

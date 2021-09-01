@@ -1,7 +1,10 @@
 package com.epam.healenium.healenium_proxy.handler;
 
 import com.epam.healenium.healenium_proxy.constants.Constants;
+import com.epam.healenium.healenium_proxy.service.HealeniumHttpRequest;
+import com.epam.healenium.healenium_proxy.service.HealeniumHttpRequestFactory;
 import com.epam.healenium.healenium_proxy.service.HealeniumProxyService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.HttpRequestHandler;
 
 import javax.servlet.http.HttpServletRequest;
@@ -16,9 +19,9 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
         response.setContentType("application/json");
         PrintWriter writer = response.getWriter();
 
-        String data = HealeniumProxyService.REQ_MAP
-                .get(request.getMethod())
-                .apply(Constants.SELENIUM_EXECUTOR + request.getRequestURI(), request);
+        HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
+
+        String data = healeniumHttpRequest.execute(Constants.SELENIUM_EXECUTOR + request.getRequestURI(), request);
 
         writer.write(data);
     }
