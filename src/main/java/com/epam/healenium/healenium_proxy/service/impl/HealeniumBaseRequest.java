@@ -16,14 +16,14 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class HealeniumBaseRequest {
 
-    protected String executeBaseRequest(HttpRequestBase httpGet) {
-        httpGet.setHeader("Content-type", "application/json");
+    protected String executeBaseRequest(HttpRequestBase httpRequest) {
+        httpRequest.setHeader("Content-type", "application/json");
         CloseableHttpClient client = HttpClients.createDefault();
         CloseableHttpResponse response;
         String responseData = "";
 
         try {
-            response = client.execute(httpGet);
+            response = client.execute(httpRequest);
             HttpEntity entityResponse = response.getEntity();
             responseData = EntityUtils.toString(entityResponse, StandardCharsets.UTF_8);
             client.close();
