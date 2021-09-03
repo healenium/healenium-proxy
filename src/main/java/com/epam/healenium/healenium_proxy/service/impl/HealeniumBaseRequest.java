@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 public class HealeniumBaseRequest {
 
     protected String executeBaseRequest(HttpRequestBase httpRequest) {
-        httpRequest.setHeader("Content-type", "application/json");
+        httpRequest.setHeader("Content-type", "application/json; charset=utf-8");
         CloseableHttpClient client = HttpClients.createDefault();
         CloseableHttpResponse response;
         String responseData = Strings.EMPTY;
