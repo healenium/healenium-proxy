@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.epam.healenium</groupId>
-	<artifactId>healenium-proxy</artifactId>
+	<artifactId>hlm-proxy</artifactId>
 	<version>1.0</version>
 	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
