@@ -6,6 +6,7 @@ import com.epam.healenium.healenium_proxy.constants.Constants;
 import com.epam.healenium.healenium_proxy.service.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
 import com.google.common.collect.ImmutableMap;
+import com.typesafe.config.ConfigFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -64,7 +65,8 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
             try {
                 RemoteWebDriver restoredWebDriverFromSession = restoreWebDriverFromSession(
                         new URL(Constants.SELENIUM_EXECUTOR), currentSessionId);
-                SelfHealingDriver selfHealingDriver = SelfHealingDriver.create(restoredWebDriverFromSession);
+                SelfHealingDriver selfHealingDriver = SelfHealingDriver.create(restoredWebDriverFromSession,
+                        ConfigFactory.systemEnvironment());
                 By by = BY_MAP_ELEMENT.get(proxyUtils.getUsingFromRequest(requestBody))
                         .apply(proxyUtils.getValueFromRequest(requestBody));
                 response = getHealingResponse(requestURI, selfHealingDriver, by);
