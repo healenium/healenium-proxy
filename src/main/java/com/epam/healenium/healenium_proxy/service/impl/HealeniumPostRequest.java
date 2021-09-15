@@ -60,7 +60,8 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
         String requestURI = request.getRequestURI();
         String response = Strings.EMPTY;
 
-        if (Pattern.matches(Constants.HEALING_REGEX, requestURI)) {
+        if (Pattern.matches(Constants.HEALING_REGEX, requestURI)
+                || Pattern.matches(Constants.HEALING_REGEX_WEB_EL, requestURI)) {
             SessionId currentSessionId = proxyUtils.getCurrentSessionId(request);
             try {
                 RemoteWebDriver restoredWebDriverFromSession = restoreWebDriverFromSession(

@@ -36,6 +36,22 @@ services:
     restart: on-failure
     ports:
       - "8000:8000"
+    networks:
+      - healenium
+
+  hlm-proxy:
+    image: healenium/hlm-proxy:1.0
+    container_name: hlm-proxy
+    ports:
+      - "8085:8085"
+
+  hlm-selenium-standalone-xpra:
+    image: healenium/hlm-selenium-4-standalone-xpra:1.0
+    restart: on-failure
+    container_name: hlm-selenium-standalone-xpra
+    ports:
+      - "4444:4444"
+      - "8086:10000"
 
 networks:
   healenium:
