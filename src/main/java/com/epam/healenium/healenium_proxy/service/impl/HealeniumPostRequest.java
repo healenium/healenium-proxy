@@ -3,14 +3,12 @@ package com.epam.healenium.healenium_proxy.service.impl;
 import com.epam.healenium.SelfHealingDriver;
 import com.epam.healenium.healenium_proxy.command.HealeniumCommandExecutor;
 import com.epam.healenium.healenium_proxy.constants.Constants;
-import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
 import com.epam.healenium.healenium_proxy.util.HealeniumRestUtils;
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.methods.HttpPost;
@@ -26,17 +24,11 @@ import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-
-import static com.epam.healenium.healenium_proxy.constants.Constants.PROTOCOL;
-import static com.epam.healenium.healenium_proxy.constants.Constants.SELENIUM_CONTAINER_NAME;
-import static com.epam.healenium.healenium_proxy.constants.Constants.SELENIUM_EXECUTOR_PATH;
 
 @Slf4j
 @Service

@@ -5,3 +5,18 @@ spring:
     image:
       location:
         /images/banner.png
+proxy:
+  protocol: http
+  new:
+    session:
+      path: /wd/hub/session
+  selenium:
+    container:
+      name: hlm-selenium-standalone-xpra
+    executor:
+      path: /wd/hub
+  healenium:
+    container:
+      name: healenium
+    report:
+      path: /healenium/report/

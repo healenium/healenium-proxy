@@ -1,6 +1,5 @@
 package com.epam.healenium.healenium_proxy.service.impl;
 
-import com.epam.healenium.healenium_proxy.constants.Constants;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.util.HealeniumRestUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +11,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.util.Strings;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -23,11 +23,14 @@ import java.util.Map;
 @Slf4j
 @Service
 public class HealeniumBaseRequest {
+    private static String newSessionPath;
 
     private final HealeniumRestService healeniumRestService;
 
-    public HealeniumBaseRequest(HealeniumRestService healeniumRestService) {
+    public HealeniumBaseRequest(HealeniumRestService healeniumRestService,
+                                @Value("${proxy.new.session.path}") String newSessionPath) {
         this.healeniumRestService = healeniumRestService;
+        HealeniumBaseRequest.newSessionPath = newSessionPath;
     }
 
     protected String executeBaseRequest(HttpRequestBase httpRequest) {
@@ -40,7 +43,7 @@ public class HealeniumBaseRequest {
             response = client.execute(httpRequest);
             HttpEntity entityResponse = response.getEntity();
             responseData = EntityUtils.toString(entityResponse, StandardCharsets.UTF_8);
-            if (Constants.NEW_SESSION_PATH.equals(httpRequest.getURI().getPath())) {
+            if (newSessionPath.equals(httpRequest.getURI().getPath())) {
                 Map<String, Object> result = new ObjectMapper().readValue(responseData, HashMap.class);
                 Map<String, Object> value = (Map) result.get("value");
                 String sessionId = (String) value.get("sessionId");
