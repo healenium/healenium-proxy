@@ -53,7 +53,6 @@ services:
       - "serverHost=localhost"
       - "serverPort=7878"
       - "imitatePort=8000"
-      - "seleniumPort=4444"
     networks:
       - healenium
 
