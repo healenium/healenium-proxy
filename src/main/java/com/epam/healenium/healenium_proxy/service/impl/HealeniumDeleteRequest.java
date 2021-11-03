@@ -15,9 +15,11 @@ import java.net.URL;
 public class HealeniumDeleteRequest implements HealeniumHttpRequest {
 
     private final HealeniumBaseRequest healeniumBaseRequest;
+    private final HealeniumRestUtils healeniumRestUtils;
 
-    public HealeniumDeleteRequest(HealeniumBaseRequest healeniumBaseRequest) {
+    public HealeniumDeleteRequest(HealeniumBaseRequest healeniumBaseRequest, HealeniumRestUtils healeniumRestUtils) {
         this.healeniumBaseRequest = healeniumBaseRequest;
+        this.healeniumRestUtils = healeniumRestUtils;
     }
 
     @Override
@@ -28,7 +30,7 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
     @Override
     public String execute(String uri, HttpServletRequest request) {
         String[] split = request.getRequestURI().split("/");
-        URL reportInitUrl = HealeniumRestUtils.getReportInitUrl(split[2]);
+        URL reportInitUrl = healeniumRestUtils.getReportInitUrl(split[2]);
         log.info("Report available at " + reportInitUrl);
         HttpRequestBase httpDelete = new HttpDelete(uri);
         return healeniumBaseRequest.executeBaseRequest(httpDelete);

@@ -13,9 +13,15 @@ import java.net.MalformedURLException;
 @Service
 public class HealeniumRestService {
 
+    private final HealeniumRestUtils healeniumRestUtils;
+
+    public HealeniumRestService(HealeniumRestUtils healeniumRestUtils) {
+        this.healeniumRestUtils = healeniumRestUtils;
+    }
+
     public void saveSessionId(String sessionId) throws MalformedURLException {
         WebClient.builder()
-                .baseUrl(HealeniumRestUtils.getHealeniumUrl().toString())
+                .baseUrl(healeniumRestUtils.getHealeniumUrl().toString())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build()
                 .post()

@@ -44,10 +44,14 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
 
     private final HealeniumProxyUtils proxyUtils;
     private final HealeniumBaseRequest healeniumBaseRequest;
+    private final HealeniumRestUtils healeniumRestUtils;
 
-    public HealeniumPostRequest(HealeniumProxyUtils proxyUtils, HealeniumBaseRequest healeniumBaseRequest) {
+    public HealeniumPostRequest(HealeniumProxyUtils proxyUtils,
+                                HealeniumBaseRequest healeniumBaseRequest,
+                                HealeniumRestUtils healeniumRestUtils) {
         this.proxyUtils = proxyUtils;
         this.healeniumBaseRequest = healeniumBaseRequest;
+        this.healeniumRestUtils = healeniumRestUtils;
     }
 
     @Override
@@ -67,7 +71,7 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
             SessionId currentSessionId = proxyUtils.getCurrentSessionId(request);
             try {
                 RemoteWebDriver restoredWebDriverFromSession = restoreWebDriverFromSession(
-                        HealeniumRestUtils.getSeleniumUrl(), currentSessionId);
+                        healeniumRestUtils.getSeleniumUrl(), currentSessionId);
                 Config config = ConfigFactory.systemEnvironment()
                         .withValue("sessionKey", ConfigValueFactory.fromAnyRef(currentSessionId.toString()));
                 SelfHealingDriver selfHealingDriver = SelfHealingDriver.create(restoredWebDriverFromSession, config);

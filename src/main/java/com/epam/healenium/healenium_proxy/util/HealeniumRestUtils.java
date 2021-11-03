@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.util;
 
+import com.epam.healenium.healenium_proxy.constants.Constants;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import lombok.SneakyThrows;
@@ -13,41 +14,34 @@ import java.net.URL;
 @Component
 public class HealeniumRestUtils {
 
-    private static String protocol;
-    private static String seleniumContainerName;
-    private static String seleniumExecutorPath;
-    private static String healeniumContainerName;
-    private static String healeniumReportPath;
+    @Value("${proxy.selenium.container.name}")
+    private String seleniumContainerName;
 
-    public HealeniumRestUtils (@Value("${proxy.protocol}") String protocol,
-                               @Value("${proxy.selenium.container.name}") String seleniumContainerName,
-                               @Value("${proxy.selenium.executor.path}") String seleniumExecutorPath,
-                               @Value("${proxy.healenium.container.name}") String healeniumContainerName,
-                               @Value("${proxy.healenium.report.path}") String healeniumReportPath) {
-        HealeniumRestUtils.protocol = protocol;
-        HealeniumRestUtils.seleniumContainerName = seleniumContainerName;
-        HealeniumRestUtils.seleniumExecutorPath = seleniumExecutorPath;
-        HealeniumRestUtils.healeniumContainerName = healeniumContainerName;
-        HealeniumRestUtils.healeniumReportPath = healeniumReportPath;
+    @Value("${proxy.healenium.container.name}")
+    private String healeniumContainerName;
+
+    @Value("${proxy.healenium.report.path}")
+    private String healeniumReportPath;
+
+    @Value("${proxy.selenium.port}")
+    private int seleniumPort;
+
+    @SneakyThrows
+    public URL getSeleniumUrl() {
+        return new URL(Constants.PROXY_PROTOCOL, seleniumContainerName, seleniumPort, Constants.SELENIUM_EXECUTOR_PATH);
     }
 
     @SneakyThrows
-    public static URL getSeleniumUrl() {
-        int seleniumPort = ConfigFactory.systemEnvironment().getInt("seleniumPort");
-        return new URL(protocol, seleniumContainerName, seleniumPort, seleniumExecutorPath);
-    }
-
-    @SneakyThrows
-    public static URL getReportInitUrl(String sessionId) {
+    public URL getReportInitUrl(String sessionId) {
         Config config = ConfigFactory.systemEnvironment();
         String serverHost = config.getString("serverHost");
         int serverPort = ConfigFactory.systemEnvironment().getInt("serverPort");
-        return new URL(protocol, serverHost, serverPort,healeniumReportPath + sessionId);
+        return new URL(Constants.PROXY_PROTOCOL, serverHost, serverPort,healeniumReportPath + sessionId);
     }
 
     @SneakyThrows
-    public static URL getHealeniumUrl() {
+    public URL getHealeniumUrl() {
         int serverPort = ConfigFactory.systemEnvironment().getInt("serverPort");
-        return new URL(protocol, healeniumContainerName, serverPort, "");
+        return new URL(Constants.PROXY_PROTOCOL, healeniumContainerName, serverPort, "");
     }
 }
