@@ -22,6 +22,8 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.remote.SessionId;
 import org.springframework.stereotype.Service;
 
+import io.appium.java_client.MobileBy;
+
 import javax.servlet.http.HttpServletRequest;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -36,10 +38,17 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
 
     public static final Map<String, Function<String, By>> BY_MAP_ELEMENT =
             ImmutableMap.<String, Function<String, By>>builder()
-                    .put("xpath", By::xpath)
-                    .put("link text", By::linkText)
-                    .put("partial link text", By::partialLinkText)
+                    .put("accessibility id", MobileBy::AccessibilityId)
+                    .put("class name", By::className)
                     .put("css selector", By::cssSelector)
+                    .put("-custom", MobileBy::custom)
+                    .put("id", By::id)
+                    .put("-image", MobileBy::image)
+                    .put("link text", By::linkText)
+                    .put("name", By::name)
+                    .put("partial link text", By::partialLinkText)
+                    .put("tag name", By::tagName)
+                    .put("xpath", By::xpath)
                     .build();
 
     private final HealeniumProxyUtils proxyUtils;

@@ -8,7 +8,7 @@ spring:
 proxy:
   selenium:
     container:
-      name: hlm-selenium-standalone-xpra
+      name: hlm-selenium-webview
     port: 4444
   healenium:
     container:
