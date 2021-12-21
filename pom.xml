@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.epam.healenium</groupId>
 	<artifactId>hlm-proxy</artifactId>
-	<version>0.1.0</version>
+	<version>0.2.0</version>
 	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
 
@@ -48,6 +48,13 @@
 			<artifactId>healenium-web</artifactId>
 			<version>3.1.6</version>
 		</dependency>
+
+		<dependency>
+			<groupId>io.appium</groupId>
+			<artifactId>java-client</artifactId>
+			<version>7.6.0</version>
+		</dependency>
+
 
 	</dependencies>
 
