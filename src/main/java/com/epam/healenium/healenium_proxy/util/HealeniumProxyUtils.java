@@ -3,10 +3,8 @@ package com.epam.healenium.healenium_proxy.util;
 import com.epam.healenium.healenium_proxy.constants.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
-import org.json.JSONObject;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebElement;
-import org.openqa.selenium.remote.SessionId;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -38,18 +36,8 @@ public class HealeniumProxyUtils {
         return requestBody;
     }
 
-    public String getValueFromRequest(String requestBody) {
-        JSONObject jsonObj = new JSONObject(requestBody);
-        return jsonObj.get("value").toString();
-    }
-
-    public String getUsingFromRequest(String requestBody) {
-        JSONObject jsonObj = new JSONObject(requestBody);
-        return jsonObj.get("using").toString();
-    }
-
-    public SessionId getCurrentSessionId(HttpServletRequest request) {
-        return new SessionId(request.getRequestURI().split("/")[2]);
+    public String getCurrentSessionId(HttpServletRequest request) {
+        return request.getRequestURI().split("/")[2];
     }
 
     public String generateResponse(List<WebElement> currentWebElements) {

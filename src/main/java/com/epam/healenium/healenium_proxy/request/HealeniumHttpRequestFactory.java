@@ -1,4 +1,4 @@
-package com.epam.healenium.healenium_proxy.service;
+package com.epam.healenium.healenium_proxy.request;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,7 +17,7 @@ public class HealeniumHttpRequestFactory {
     private static final Map<String, HealeniumHttpRequest> healeniumHttpRequestsCache = new HashMap<>();
 
     @PostConstruct
-    public void initMyServiceCache() {
+    public void initRequestCache() {
         for (HealeniumHttpRequest service : healeniumHttpRequests) {
             healeniumHttpRequestsCache.put(service.getType(), service);
         }

@@ -1,24 +1,20 @@
 package com.epam.healenium.healenium_proxy.command;
 
+import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.remote.Command;
-import org.openqa.selenium.remote.HttpCommandExecutor;
-import org.openqa.selenium.remote.Response;
-import org.openqa.selenium.remote.SessionId;
-import org.openqa.selenium.remote.http.W3CHttpCommandCodec;
+import org.openqa.selenium.remote.*;
 import org.openqa.selenium.remote.http.W3CHttpResponseCodec;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
-import java.util.Collections;
 
 @Slf4j
 public class HealeniumCommandExecutor extends HttpCommandExecutor {
 
-    private final SessionId sessionId;
+    private final String sessionId;
 
-    public HealeniumCommandExecutor(URL addressOfRemoteServer, SessionId sessionId) {
+    public HealeniumCommandExecutor(URL addressOfRemoteServer, String sessionId) {
         super(addressOfRemoteServer);
         this.sessionId = sessionId;
     }
@@ -29,9 +25,9 @@ public class HealeniumCommandExecutor extends HttpCommandExecutor {
             return super.execute(command);
         }
         Response response = new Response();
-        response.setSessionId(sessionId.toString());
+        response.setSessionId(sessionId);
         response.setStatus(0);
-        response.setValue(Collections.<String, String>emptyMap());
+        response.setValue(((DesiredCapabilities) command.getParameters().get("desiredCapabilities")).asMap());
         updateCodec();
         return response;
     }
@@ -41,7 +37,7 @@ public class HealeniumCommandExecutor extends HttpCommandExecutor {
             Field commandCodec;
             commandCodec = this.getClass().getSuperclass().getDeclaredField("commandCodec");
             commandCodec.setAccessible(true);
-            commandCodec.set(this, new W3CHttpCommandCodec());
+            commandCodec.set(this, new AppiumW3CHttpCommandCodec());
 
             Field responseCodec;
             responseCodec = this.getClass().getSuperclass().getDeclaredField("responseCodec");
