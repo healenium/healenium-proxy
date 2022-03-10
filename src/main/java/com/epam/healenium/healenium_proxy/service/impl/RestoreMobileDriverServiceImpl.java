@@ -1,7 +1,7 @@
 package com.epam.healenium.healenium_proxy.service.impl;
 
 import com.epam.healenium.appium.wrapper.DriverWrapper;
-import com.epam.healenium.healenium_proxy.command.HealeniumCommandExecutor;
+import com.epam.healenium.healenium_proxy.command.HealeniumMobileCommandExecutor;
 import com.epam.healenium.healenium_proxy.model.SessionDelegate;
 import com.epam.healenium.healenium_proxy.service.RestoreDriverService;
 import com.typesafe.config.Config;
@@ -31,7 +31,7 @@ public class RestoreMobileDriverServiceImpl implements RestoreDriverService {
     }
 
     private AndroidDriver<AndroidElement> restoreAndroidDriverFromSession(String currentSessionId, SessionDelegate sessionDelegate) throws MalformedURLException {
-        HttpCommandExecutor executor = new HealeniumCommandExecutor(new URL(sessionDelegate.getUrl()), currentSessionId);
+        HttpCommandExecutor executor = new HealeniumMobileCommandExecutor(new URL(sessionDelegate.getUrl()), currentSessionId);
         return new AndroidDriver(executor, new DesiredCapabilities(sessionDelegate.getCapabilities()));
     }
 }

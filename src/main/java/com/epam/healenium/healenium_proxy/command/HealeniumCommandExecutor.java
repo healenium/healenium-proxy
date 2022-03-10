@@ -3,6 +3,7 @@ package com.epam.healenium.healenium_proxy.command;
 import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.*;
+import org.openqa.selenium.remote.http.W3CHttpCommandCodec;
 import org.openqa.selenium.remote.http.W3CHttpResponseCodec;
 
 import java.io.IOException;
@@ -32,12 +33,12 @@ public class HealeniumCommandExecutor extends HttpCommandExecutor {
         return response;
     }
 
-    private void updateCodec() {
+    protected void updateCodec() {
         try {
             Field commandCodec;
             commandCodec = this.getClass().getSuperclass().getDeclaredField("commandCodec");
             commandCodec.setAccessible(true);
-            commandCodec.set(this, new AppiumW3CHttpCommandCodec());
+            commandCodec.set(this, new W3CHttpCommandCodec());
 
             Field responseCodec;
             responseCodec = this.getClass().getSuperclass().getDeclaredField("responseCodec");

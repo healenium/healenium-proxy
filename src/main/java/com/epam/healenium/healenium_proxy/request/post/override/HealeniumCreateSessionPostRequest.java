@@ -101,7 +101,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     }
 
     public boolean isWeb(HashMap<String, Object> capabilities) {
-        return capabilities == null || !"android".equalsIgnoreCase((String) capabilities.get("platformName"));
+        return capabilities == null || !"android".equalsIgnoreCase((String) capabilities.get(PLATFORM_NAME));
     }
 
 }

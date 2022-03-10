@@ -51,6 +51,7 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
                     .put("accessibility id", MobileBy::AccessibilityId)
                     .put("-custom", MobileBy::custom)
                     .put("-image", MobileBy::image)
+                    .put("class", By::className)
                     .build();
 
     protected final HealeniumProxyUtils proxyUtils;
