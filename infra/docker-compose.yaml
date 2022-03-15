@@ -52,14 +52,11 @@ services:
       - "recovery-tries=1"
       - "score-cap=.6"
       - "heal-enabled=true"
-      - "serverHost=localhost"
-      - "serverPort=7878"
-      - "imitatePort=8000"
     networks:
       - healenium
 
   hlm-selenium-webview:
-    image: healenium/hlm-selenium-3-standalone-tigervnc:0.1.2
+    image: healenium/hlm-selenium-3-standalone-tigervnc:0.1.1
     restart: on-failure
     container_name: hlm-selenium-webview
     ports:

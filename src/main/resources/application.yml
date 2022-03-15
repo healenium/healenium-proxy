@@ -7,11 +7,14 @@ spring:
         /images/banner.png
 proxy:
   selenium:
-    container:
-      name: hlm-selenium-webview
-    port: 4444
+    url: http://${SELENIUM_HOST:hlm-selenium-webview}:${SELENIUM_PORT:4444}/wd/hub
+  appium:
+    url: http://${APPIUM_HOST:localhost}:${APPIUM_PORT:4723}/wd/hub
   healenium:
     container:
-      name: healenium
+      url: http://${HEALENIUM_HOST:healenium}:${HEALENIUM_PORT:7878}
     report:
-      path: /healenium/report/
+      url: http://${SERVER_HOST:localhost}:${SERVER_PORT:7878}/healenium/report/
+  imitate:
+    container:
+      url: http://${IMITATE_HOST:selector-imitator}:${IMITATE_PORT:8000}
