@@ -1,8 +1,10 @@
 package com.epam.healenium.healenium_proxy.command;
 
-import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.remote.*;
+import org.openqa.selenium.remote.Command;
+import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.HttpCommandExecutor;
+import org.openqa.selenium.remote.Response;
 import org.openqa.selenium.remote.http.W3CHttpCommandCodec;
 import org.openqa.selenium.remote.http.W3CHttpResponseCodec;
 
