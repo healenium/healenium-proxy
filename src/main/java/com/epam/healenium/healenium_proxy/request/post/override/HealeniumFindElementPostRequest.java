@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.request.post.override;
 
+import com.epam.healenium.handlers.proxy.SelfHealingProxyInvocationHandler;
 import com.epam.healenium.healenium_proxy.model.SessionDelegate;
 import com.epam.healenium.healenium_proxy.request.HealeniumBaseRequest;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
@@ -17,10 +18,12 @@ import org.json.JSONObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.remote.RemoteWebElement;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
@@ -82,7 +85,8 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
             WebDriver selfHealingDriver = RestoreDriverServiceFactory.getRestoreService(platformName)
                     .restoreDriver(currentSessionId, sessionDelegate, getConfig(currentSessionId));
             By by = getLocator(requestBody);
-            return getHealingResponse(selfHealingDriver, by);
+            String id = getId(requestBody);
+            return getHealingResponse(selfHealingDriver, by, id, sessionDelegate);
         } catch (ClassCastException | MalformedURLException e) {
             log.error(e.getMessage(), e);
         }
@@ -96,8 +100,22 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
         return BY_MAP_ELEMENT.get(using).apply(value);
     }
 
-    protected String getHealingResponse(WebDriver selfHealingDriver, By by) {
-        WebElement currentWebElement = selfHealingDriver.findElement(by);
+    private String getId(String requestBody) {
+        JSONObject jsonObj = new JSONObject(requestBody);
+        return jsonObj.has("id") ? jsonObj.get("id").toString() : null;
+    }
+
+    protected String getHealingResponse(WebDriver selfHealingDriver, By by, String id, SessionDelegate sessionDelegate) {
+        WebElement currentWebElement;
+        if (id != null) {
+            WebElement el = sessionDelegate.getWebElements().get(id);
+            WebElement wrapEl = ((SelfHealingProxyInvocationHandler) Proxy.getInvocationHandler(selfHealingDriver))
+                    .wrapElement(el, selfHealingDriver.getClass().getClassLoader());
+            currentWebElement = wrapEl.findElement(by);
+        } else {
+            currentWebElement = selfHealingDriver.findElement(by);
+        }
+        sessionDelegate.getWebElements().put(((RemoteWebElement) currentWebElement).getId(), currentWebElement);
         return proxyUtils.generateResponse(currentWebElement);
     }
 
