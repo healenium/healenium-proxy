@@ -2,7 +2,7 @@ package com.epam.healenium.healenium_proxy.command;
 
 import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.remote.http.W3CHttpResponseCodec;
+import org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec;
 
 import java.lang.reflect.Field;
 import java.net.URL;
