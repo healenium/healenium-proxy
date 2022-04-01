@@ -42,7 +42,7 @@ services:
       - healenium
 
   hlm-proxy:
-    image: healenium/hlm-proxy:0.2.4
+    image: healenium/hlm-proxy:0.2.4.1-selenium-4
     container_name: hlm-proxy
     restart: on-failure
     ports:
@@ -57,7 +57,7 @@ services:
       - healenium
 
   hlm-selenium-webview:
-    image: healenium/hlm-selenium-4-standalone-tigervnc:0.1.2
+    image: healenium/hlm-selenium-4-standalone-tigervnc:firefox98.0.1_chrome99.0.4844.82_edge99.0.1150.46
     restart: on-failure
     container_name: hlm-selenium-webview
     ports:

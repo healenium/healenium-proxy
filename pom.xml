@@ -14,7 +14,7 @@
 	</properties>
 	<groupId>com.epam.healenium</groupId>
 	<artifactId>hlm-proxy</artifactId>
-	<version>0.2.4-selenium-4</version>
+	<version>0.2.4.1-selenium-4</version>
 	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
 
@@ -22,12 +22,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>ch.qos.logback</groupId>
-					<artifactId>logback-classic</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 
 		<dependency>
