@@ -42,7 +42,7 @@ services:
       - healenium
 
   hlm-proxy:
-    image: healenium/hlm-proxy:0.2.4.1-selenium-4
+    image: healenium/hlm-proxy:0.2.5-selenium-4
     container_name: hlm-proxy
     restart: on-failure
     ports:
