@@ -8,10 +8,17 @@
 		<version>2.6.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
+
 	<properties>
 		<selenium.version>4.1.0</selenium.version>
 		<netty.version>4.1.69.Final</netty.version>
+		<httpclient.version>4.5.13</httpclient.version>
+		<json.version>20210307</json.version>
+		<commons.collections4.version>4.4</commons.collections4.version>
+		<healenium.appium.version>1.2.5</healenium.appium.version>
+		<appium.java.client.version>7.6.0</appium.java.client.version>
 	</properties>
+
 	<groupId>com.epam.healenium</groupId>
 	<artifactId>hlm-proxy</artifactId>
 	<version>0.2.4-selenium-4</version>
@@ -22,12 +29,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>ch.qos.logback</groupId>
-					<artifactId>logback-classic</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 
 		<dependency>
@@ -44,33 +45,32 @@
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
-			<version>4.5.13</version>
+			<version>${httpclient.version}</version>
 		</dependency>
 
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
-			<version>20210307</version>
+			<version>${json.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-collections4</artifactId>
-			<version>4.1</version>
+			<version>${commons.collections4.version}</version>
 		</dependency>
 
 		<dependency>
 			<groupId>com.epam.healenium</groupId>
 			<artifactId>healenium-appium</artifactId>
-			<version>1.2.4</version>
+			<version>${healenium.appium.version}</version>
 		</dependency>
 
 		<dependency>
 			<groupId>io.appium</groupId>
 			<artifactId>java-client</artifactId>
-			<version>7.6.0</version>
+			<version>${appium.java.client.version}</version>
 		</dependency>
-
-
 	</dependencies>
 
 	<build>
