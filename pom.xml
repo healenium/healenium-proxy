@@ -15,13 +15,13 @@
 		<httpclient.version>4.5.13</httpclient.version>
 		<json.version>20210307</json.version>
 		<commons.collections4.version>4.4</commons.collections4.version>
-		<healenium.appium.version>1.2.5</healenium.appium.version>
+		<healenium.appium.version>${appium}</healenium.appium.version>
 		<appium.java.client.version>7.6.0</appium.java.client.version>
 	</properties>
 
 	<groupId>com.epam.healenium</groupId>
 	<artifactId>hlm-proxy</artifactId>
-	<version>0.2.4-selenium-4</version>
+	<version>{proxy}</version>
 	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
 
