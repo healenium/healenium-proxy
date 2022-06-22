@@ -26,12 +26,12 @@ public class RestoreMobileDriverServiceImpl implements RestoreDriverService {
 
     @Override
     public WebDriver restoreDriver(String currentSessionId, SessionDelegate sessionDelegate, Config config) throws MalformedURLException {
-        AndroidDriver restoreAndroidDriver = restoreAndroidDriverFromSession(currentSessionId, sessionDelegate);
+        AndroidDriver<AndroidElement> restoreAndroidDriver = restoreAndroidDriverFromSession(currentSessionId, sessionDelegate);
         return DriverWrapper.wrap(restoreAndroidDriver, config);
     }
 
     private AndroidDriver<AndroidElement> restoreAndroidDriverFromSession(String currentSessionId, SessionDelegate sessionDelegate) throws MalformedURLException {
         HttpCommandExecutor executor = new HealeniumMobileCommandExecutor(new URL(sessionDelegate.getUrl()), currentSessionId);
-        return new AndroidDriver(executor, new DesiredCapabilities(sessionDelegate.getCapabilities()));
+        return new AndroidDriver<>(executor, new DesiredCapabilities(sessionDelegate.getCapabilities()));
     }
 }
