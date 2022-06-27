@@ -9,7 +9,7 @@ import java.util.Map;
 @Data
 public class SessionDelegate {
 
-    private HashMap<String, Object> capabilities;
+    private Map<String, Object> capabilities;
     private String url;
     private Map<String, WebElement> webElements = new HashMap<>();
 
