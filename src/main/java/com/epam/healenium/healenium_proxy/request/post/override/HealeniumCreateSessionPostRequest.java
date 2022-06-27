@@ -70,6 +70,12 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         httpPost.setEntity(entity);
 
         String responseData = healeniumBaseRequest.executeToSeleniumServer(httpPost);
+        Map<String, Map<String, Object>> responseDataMap = json.toType(responseData, Json.MAP_TYPE);
+
+        Map<String, Object> valueMap = responseDataMap.get("value");
+        if (valueMap != null &&  valueMap.containsKey("error")) {
+            return responseData;
+        }
 
         String sessionId = updateCache(responseData);
         healeniumRestService.saveSessionId(sessionId);
