@@ -4,7 +4,7 @@ services:
 
   postgres-db:
     image: postgres:14.2-bullseye
-    container_name: db
+    container_name: postgres-db
     restart: always
     ports:
       - "5432:5432"
@@ -26,8 +26,8 @@ services:
     links:
       - postgres-db
     environment:
-      - SPRING_CONTAINER_NAME=healenium
       - SPRING_POSTGRES_DB=healenium
+      - SPRING_POSTGRES_SCHEMA=healenium
       - SPRING_POSTGRES_USER=healenium_user
       - SPRING_POSTGRES_PASSWORD=YDk2nmNs4s9aCP6K
       - SPRING_POSTGRES_DB_HOST=postgres-db
