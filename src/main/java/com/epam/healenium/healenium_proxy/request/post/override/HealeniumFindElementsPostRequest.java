@@ -1,11 +1,12 @@
 package com.epam.healenium.healenium_proxy.request.post.override;
 
 import com.epam.healenium.handlers.proxy.SelfHealingProxyInvocationHandler;
+import com.epam.healenium.healenium_proxy.config.ProxyConfig;
+import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
 import com.epam.healenium.healenium_proxy.model.SessionDelegate;
 import com.epam.healenium.healenium_proxy.request.HealeniumBaseRequest;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
-import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -22,10 +23,12 @@ import java.util.List;
 @Service
 public class HealeniumFindElementsPostRequest extends HealeniumFindElementPostRequest implements HealeniumHttpPostRequest {
 
-    public HealeniumFindElementsPostRequest(HealeniumProxyUtils proxyUtils,
+    public HealeniumFindElementsPostRequest(HttpServletRequestService httpServletRequestService,
+                                            ProxyResponseConverter proxyResponseConverter,
                                             HealeniumBaseRequest healeniumBaseRequest,
-                                            HealeniumRestService healeniumRestService) {
-        super(proxyUtils, healeniumBaseRequest, healeniumRestService);
+                                            HealeniumRestService healeniumRestService,
+                                            ProxyConfig proxyConfig) {
+        super(httpServletRequestService, proxyResponseConverter, healeniumBaseRequest, healeniumRestService, proxyConfig);
     }
 
     @Override
@@ -34,11 +37,11 @@ public class HealeniumFindElementsPostRequest extends HealeniumFindElementPostRe
     }
 
     @Override
-    public String execute(HttpServletRequest request) throws MalformedURLException, JsonProcessingException {
+    public String execute(HttpServletRequest request) throws MalformedURLException {
         return super.execute(request);
     }
 
-    protected String getHealingResponse(WebDriver selfHealingDriver, By by, String id, SessionDelegate sessionDelegate) {
+    protected String findElement(WebDriver selfHealingDriver, By by, String id, SessionDelegate sessionDelegate) {
         List<WebElement> currentWebElements;
         if (id != null) {
             WebElement el = sessionDelegate.getWebElements().get(id);
@@ -49,6 +52,6 @@ public class HealeniumFindElementsPostRequest extends HealeniumFindElementPostRe
             currentWebElements = selfHealingDriver.findElements(by);
         }
         currentWebElements.forEach(e -> sessionDelegate.getWebElements().put(((RemoteWebElement) e).getId(), e));
-        return proxyUtils.generateResponse(currentWebElements);
+        return proxyResponseConverter.generateResponse(currentWebElements);
     }
 }

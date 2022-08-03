@@ -1,45 +1,35 @@
 package com.epam.healenium.healenium_proxy.request.post.override;
 
 import com.epam.healenium.handlers.proxy.SelfHealingProxyInvocationHandler;
+import com.epam.healenium.healenium_proxy.config.ProxyConfig;
+import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
 import com.epam.healenium.healenium_proxy.model.SessionDelegate;
 import com.epam.healenium.healenium_proxy.request.HealeniumBaseRequest;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
+import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
 import com.epam.healenium.healenium_proxy.service.RestoreDriverServiceFactory;
-import com.epam.healenium.healenium_proxy.util.HealeniumProxyUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValueFactory;
 import io.appium.java_client.MobileBy;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
-import org.json.JSONObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.json.Json;
 import org.openqa.selenium.remote.RemoteWebElement;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.openqa.selenium.json.Json.MAP_TYPE;
 import static org.openqa.selenium.remote.CapabilityType.PLATFORM_NAME;
 
 @Slf4j
 @Service
 public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest {
-
-    @Value("${proxy.healenium.container.url}")
-    private String healeniumContainerUrl;
-
-    @Value("${proxy.imitate.container.url}")
-    private String imitateContainerUrl;
 
     public static final Map<String, Function<String, By>> BY_MAP_ELEMENT =
             ImmutableMap.<String, Function<String, By>>builder()
@@ -57,16 +47,24 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
                     .put("class", By::className)
                     .build();
 
-    protected final HealeniumProxyUtils proxyUtils;
+    protected final HttpServletRequestService httpServletRequestService;
+    protected final ProxyResponseConverter proxyResponseConverter;
     protected final HealeniumBaseRequest healeniumBaseRequest;
     protected final HealeniumRestService healeniumRestService;
+    protected final ProxyConfig proxyConfig;
 
-    public HealeniumFindElementPostRequest(HealeniumProxyUtils proxyUtils,
+    private final Json json = new Json();
+
+    public HealeniumFindElementPostRequest(HttpServletRequestService httpServletRequestService,
+                                           ProxyResponseConverter proxyResponseConverter,
                                            HealeniumBaseRequest healeniumBaseRequest,
-                                           HealeniumRestService healeniumRestService) {
-        this.proxyUtils = proxyUtils;
+                                           HealeniumRestService healeniumRestService,
+                                           ProxyConfig proxyConfig) {
+        this.httpServletRequestService = httpServletRequestService;
+        this.proxyResponseConverter = proxyResponseConverter;
         this.healeniumBaseRequest = healeniumBaseRequest;
         this.healeniumRestService = healeniumRestService;
+        this.proxyConfig = proxyConfig;
     }
 
     @Override
@@ -75,37 +73,22 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
     }
 
     @Override
-    public String execute(HttpServletRequest request) throws MalformedURLException, JsonProcessingException {
-        String requestBody = proxyUtils.getRequestBody(request);
+    public String execute(HttpServletRequest request) throws MalformedURLException {
+        String requestBody = httpServletRequestService.getRequestBody(request);
+        Map<String, Object> requestBodyMap = json.toType(requestBody, MAP_TYPE);
 
-        String currentSessionId = proxyUtils.getCurrentSessionId(request);
-        try {
-            SessionDelegate sessionDelegate = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId);
-            String platformName = (String) sessionDelegate.getCapabilities().get(PLATFORM_NAME);
-            WebDriver selfHealingDriver = RestoreDriverServiceFactory.getRestoreService(platformName)
-                    .restoreDriver(currentSessionId, sessionDelegate, getConfig(currentSessionId));
-            By by = getLocator(requestBody);
-            String id = getId(requestBody);
-            return getHealingResponse(selfHealingDriver, by, id, sessionDelegate);
-        } catch (ClassCastException | MalformedURLException e) {
-            log.error(e.getMessage(), e);
-        }
-        return Strings.EMPTY;
+        String currentSessionId = httpServletRequestService.getCurrentSessionId(request);
+        SessionDelegate sessionDelegate = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId);
+        String platformName = (String) sessionDelegate.getCapabilities().get(PLATFORM_NAME);
+        WebDriver selfHealingDriver = RestoreDriverServiceFactory.getRestoreService(platformName)
+                .restoreDriver(currentSessionId, sessionDelegate, proxyConfig.getConfig(currentSessionId));
+        By by = BY_MAP_ELEMENT.get((String) requestBodyMap.get("using"))
+                .apply((String) requestBodyMap.get("value"));
+        String id = (String) requestBodyMap.get("id");
+        return findElement(selfHealingDriver, by, id, sessionDelegate);
     }
 
-    private By getLocator(String requestBody) {
-        JSONObject jsonObj = new JSONObject(requestBody);
-        String using = jsonObj.get("using").toString();
-        String value = jsonObj.get("value").toString();
-        return BY_MAP_ELEMENT.get(using).apply(value);
-    }
-
-    private String getId(String requestBody) {
-        JSONObject jsonObj = new JSONObject(requestBody);
-        return jsonObj.has("id") ? jsonObj.get("id").toString() : null;
-    }
-
-    protected String getHealingResponse(WebDriver selfHealingDriver, By by, String id, SessionDelegate sessionDelegate) {
+    protected String findElement(WebDriver selfHealingDriver, By by, String id, SessionDelegate sessionDelegate) {
         WebElement currentWebElement;
         if (id != null) {
             WebElement el = sessionDelegate.getWebElements().get(id);
@@ -116,18 +99,7 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
             currentWebElement = selfHealingDriver.findElement(by);
         }
         sessionDelegate.getWebElements().put(((RemoteWebElement) currentWebElement).getId(), currentWebElement);
-        return proxyUtils.generateResponse(currentWebElement);
+        return proxyResponseConverter.generateResponse(currentWebElement);
     }
 
-    private Config getConfig(String currentSessionId) throws MalformedURLException {
-        URL healeniumUrl = new URL(healeniumContainerUrl);
-        URL imitateUrl = new URL(imitateContainerUrl);
-        return ConfigFactory.systemEnvironment()
-                .withValue("sessionKey", ConfigValueFactory.fromAnyRef(currentSessionId))
-                .withValue("serverHost", ConfigValueFactory.fromAnyRef(healeniumUrl.getHost()))
-                .withValue("serverPort", ConfigValueFactory.fromAnyRef(healeniumUrl.getPort()))
-                .withValue("imitateHost", ConfigValueFactory.fromAnyRef(imitateUrl.getHost()))
-                .withValue("imitatePort", ConfigValueFactory.fromAnyRef(imitateUrl.getPort()))
-                .withValue("proxy", ConfigValueFactory.fromAnyRef(true));
-    }
 }

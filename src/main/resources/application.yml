@@ -7,8 +7,7 @@ spring:
         /images/banner.png
 proxy:
   selenium:
-    #url: http://${SELENIUM_HOST:hlm-selenium-webview}:${SELENIUM_PORT:4444}/wd/hub
-    url: http://${SELENIUM_HOST:hlm-selenium-webview}:${SELENIUM_PORT:4444}
+    url: http://${SELENIUM_HOST:hlm-selenoid}:${SELENIUM_PORT:4444}${SELENIUM_URL:/}
   appium:
     url: http://${APPIUM_HOST:localhost}:${APPIUM_PORT:4723}/wd/hub
   healenium:
@@ -19,3 +18,7 @@ proxy:
   imitate:
     container:
       url: http://${IMITATE_HOST:selector-imitator}:${IMITATE_PORT:8000}
+healing:
+  healenabled: ${HEAL_ENABLED:true}
+  recoverytries: ${RECOVERY_TRIES:1}
+  scorecap: ${SCORE_CAP:.6}

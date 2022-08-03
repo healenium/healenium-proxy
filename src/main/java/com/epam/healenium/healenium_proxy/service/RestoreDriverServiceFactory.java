@@ -21,9 +21,7 @@ public class RestoreDriverServiceFactory {
 
     @PostConstruct
     public void initRequestCache() {
-        for (RestoreDriverService service : restoreDriverServices) {
-            restoreDriverServicesCache.put(service.getPlatformName(), service);
-        }
+        restoreDriverServices.forEach(service -> restoreDriverServicesCache.put(service.getPlatformName(), service));
     }
 
     public static RestoreDriverService getRestoreService(String platformName) {

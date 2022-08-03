@@ -20,18 +20,14 @@ public class HealeniumHttpPostRequestFactory {
 
     @PostConstruct
     public void initRequestCache() {
-        for (HealeniumHttpPostRequest service : postRequests) {
-            postRequestsCache.put(service.getURL(), service);
-        }
+        postRequests.forEach(service -> postRequestsCache.put(service.getURL(), service));
     }
 
     public static HealeniumHttpPostRequest getRequest(String type) {
-        HealeniumHttpPostRequest service = null;
-        for (Map.Entry<String, HealeniumHttpPostRequest> item : postRequestsCache.entrySet()) {
-            if (type.endsWith(item.getKey())) {
-                service = item.getValue();
-            }
-        }
-        return service;
+        return postRequestsCache.entrySet().stream()
+                .filter(item -> type.endsWith(item.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
     }
 }
