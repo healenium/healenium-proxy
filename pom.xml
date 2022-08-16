@@ -10,7 +10,7 @@
 	</parent>
 
 	<properties>
-		<selenium.version>4.1.0</selenium.version>
+		<selenium.version>4.3.0</selenium.version>
 		<netty.version>4.1.69.Final</netty.version>
 		<httpclient.version>4.5.13</httpclient.version>
 		<json.version>20210307</json.version>

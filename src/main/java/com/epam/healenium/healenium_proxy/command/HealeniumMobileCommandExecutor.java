@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.command;
 
+import com.epam.healenium.healenium_proxy.model.SessionDelegate;
 import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec;
@@ -10,8 +11,8 @@ import java.net.URL;
 @Slf4j
 public class HealeniumMobileCommandExecutor extends HealeniumCommandExecutor {
 
-    public HealeniumMobileCommandExecutor(URL addressOfRemoteServer, String sessionId) {
-        super(addressOfRemoteServer, sessionId);
+    public HealeniumMobileCommandExecutor(URL addressOfRemoteServer, String sessionId, SessionDelegate sessionDelegate) {
+        super(addressOfRemoteServer, sessionId, sessionDelegate);
     }
 
     @Override
