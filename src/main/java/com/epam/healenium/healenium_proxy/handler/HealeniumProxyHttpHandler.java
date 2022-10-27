@@ -5,6 +5,7 @@ import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequestFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.web.HttpRequestHandler;
 
 import javax.servlet.http.HttpServletRequest;
@@ -26,7 +27,7 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
     public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         PrintWriter writer = response.getWriter();
         try {
-            response.setContentType("application/json");
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
             HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
 

@@ -9,17 +9,23 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.openqa.selenium.Platform;
 import org.openqa.selenium.json.Json;
+import org.openqa.selenium.json.JsonInput;
+import org.openqa.selenium.remote.CapabilityType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
-import static org.openqa.selenium.remote.CapabilityType.PLATFORM_NAME;
 
 @Slf4j
 @Service
@@ -57,7 +63,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     public String execute(HttpServletRequest request) throws IOException {
         String requestBody = servletRequestService.getRequestBody(request);
         Map<String, Map<String, Object>> bodyMap = json.toType(requestBody, Json.MAP_TYPE);
-        String url = isWeb(bodyMap.get("desiredCapabilities")) ? seleniumUrl : appiumUrl;
+        String url = isWeb(bodyMap.get("capabilities")) ? seleniumUrl : appiumUrl;
 
         StringEntity entity = null;
         try {
@@ -73,7 +79,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         Map<String, Map<String, Object>> responseDataMap = json.toType(responseData, Json.MAP_TYPE);
 
         Map<String, Object> valueMap = responseDataMap.get("value");
-        if (valueMap != null &&  valueMap.containsKey("error")) {
+        if (valueMap != null && valueMap.containsKey("error")) {
             return responseData;
         }
 
@@ -97,8 +103,8 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     private SessionDelegate buildSessionDelegate(Map<String, Object> value) {
         SessionDelegate sessionDelegate = new SessionDelegate();
         Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault("capabilities", Collections.EMPTY_MAP);
-        capabilities.remove("platform");
-        String url = Platform.ANDROID.equals(Platform.fromString((String) capabilities.get(PLATFORM_NAME)))
+        capabilities.remove(CapabilityType.PLATFORM);
+        String url = Platform.ANDROID.equals(Platform.fromString((String) capabilities.get(CapabilityType.PLATFORM_NAME)))
                 ? appiumUrl
                 : seleniumUrl;
         sessionDelegate.setCapabilities(capabilities);
@@ -107,7 +113,33 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     }
 
     public boolean isWeb(Map<String, Object> capabilities) {
-        return capabilities == null || !"android".equalsIgnoreCase((String) capabilities.get(PLATFORM_NAME));
+        Object firstMatch = capabilities.get("firstMatch");
+        if (firstMatch instanceof Map) {
+            return !"android".equalsIgnoreCase((String) ((Map<?, ?>) firstMatch).get(CapabilityType.PLATFORM_NAME));
+        }
+        return true;
+    }
+
+    public Map<String, Object> getMetadata(HttpServletRequest request) {
+        try (Reader reader = new BufferedReader(new InputStreamReader(request.getInputStream()));
+             JsonInput input = json.newInput(reader)) {
+            Map<String, Object> toReturn = new HashMap<>();
+            input.beginObject();
+
+            while (input.hasNext()) {
+                String name = input.nextName();
+                Object value = input.read(Object.class);
+                if (value == null) {
+                    continue;
+                }
+                toReturn.put(name, value);
+            }
+
+            input.endObject();
+            return toReturn;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
 }

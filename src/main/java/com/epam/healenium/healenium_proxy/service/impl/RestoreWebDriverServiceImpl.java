@@ -5,10 +5,10 @@ import com.epam.healenium.healenium_proxy.command.HealeniumCommandExecutor;
 import com.epam.healenium.healenium_proxy.model.SessionDelegate;
 import com.epam.healenium.healenium_proxy.service.RestoreDriverService;
 import com.typesafe.config.Config;
+import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.Platform;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.remote.CommandExecutor;
-import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +30,7 @@ public class RestoreWebDriverServiceImpl implements RestoreDriverService {
     }
 
     private RemoteWebDriver restoreWebDriverFromSession(String currentSessionId, SessionDelegate sessionDelegate) throws MalformedURLException {
-        CommandExecutor executor = new HealeniumCommandExecutor(new URL(sessionDelegate.getUrl()), currentSessionId);
-        return new RemoteWebDriver(executor, new DesiredCapabilities(sessionDelegate.getCapabilities()));
+        CommandExecutor executor = new HealeniumCommandExecutor(new URL(sessionDelegate.getUrl()), currentSessionId, sessionDelegate);
+        return new RemoteWebDriver(executor, new MutableCapabilities(sessionDelegate.getCapabilities()));
     }
 }
