@@ -9,23 +9,18 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.openqa.selenium.Platform;
 import org.openqa.selenium.json.Json;
-import org.openqa.selenium.json.JsonInput;
 import org.openqa.selenium.remote.CapabilityType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-
 
 @Slf4j
 @Service
@@ -63,7 +58,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     public String execute(HttpServletRequest request) throws IOException {
         String requestBody = servletRequestService.getRequestBody(request);
         Map<String, Map<String, Object>> bodyMap = json.toType(requestBody, Json.MAP_TYPE);
-        String url = isWeb(bodyMap.get("capabilities")) ? seleniumUrl : appiumUrl;
+        String url = !isMobile(bodyMap.get("capabilities")) ? seleniumUrl : appiumUrl;
 
         StringEntity entity = null;
         try {
@@ -89,7 +84,6 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         return responseData;
     }
 
-
     private String updateCache(String responseData) {
         Map<String, Map<String, Object>> result = json.toType(responseData, Json.MAP_TYPE);
         Map<String, Object> value = result.get("value");
@@ -104,7 +98,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         SessionDelegate sessionDelegate = new SessionDelegate();
         Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault("capabilities", Collections.EMPTY_MAP);
         capabilities.remove(CapabilityType.PLATFORM);
-        String url = Platform.ANDROID.equals(Platform.fromString((String) capabilities.get(CapabilityType.PLATFORM_NAME)))
+        String url = Arrays.asList(Platform.ANDROID, Platform.IOS).contains(Platform.fromString((String) capabilities.get(CapabilityType.PLATFORM_NAME)))
                 ? appiumUrl
                 : seleniumUrl;
         sessionDelegate.setCapabilities(capabilities);
@@ -112,34 +106,21 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         return sessionDelegate;
     }
 
-    public boolean isWeb(Map<String, Object> capabilities) {
-        Object firstMatch = capabilities.get("firstMatch");
-        if (firstMatch instanceof Map) {
-            return !"android".equalsIgnoreCase((String) ((Map<?, ?>) firstMatch).get(CapabilityType.PLATFORM_NAME));
+    public boolean isMobile(Map<String, Object> capabilities) {
+        boolean isMobile = false;
+        Object alwaysMatch = capabilities.get("alwaysMatch");
+        if (alwaysMatch != null) {
+            isMobile = "android".equalsIgnoreCase((String) ((Map<?, ?>) alwaysMatch).get(CapabilityType.PLATFORM_NAME))
+                    || "ios".equalsIgnoreCase((String) ((Map<?, ?>) alwaysMatch).get(CapabilityType.PLATFORM_NAME));
         }
-        return true;
-    }
-
-    public Map<String, Object> getMetadata(HttpServletRequest request) {
-        try (Reader reader = new BufferedReader(new InputStreamReader(request.getInputStream()));
-             JsonInput input = json.newInput(reader)) {
-            Map<String, Object> toReturn = new HashMap<>();
-            input.beginObject();
-
-            while (input.hasNext()) {
-                String name = input.nextName();
-                Object value = input.read(Object.class);
-                if (value == null) {
-                    continue;
-                }
-                toReturn.put(name, value);
-            }
-
-            input.endObject();
-            return toReturn;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (!isMobile) {
+            isMobile = ((List) capabilities.get("firstMatch")).stream()
+                    .flatMap(lm -> ((Map) lm).entrySet().stream())
+                    .anyMatch(c -> CapabilityType.PLATFORM_NAME.equals(((Map.Entry<?, ?>) c).getKey())
+                            && ("android".equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())
+                            || "ios".equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())));
         }
+        return isMobile;
     }
 
 }

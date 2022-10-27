@@ -39,6 +39,7 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
         log.info("Report available at " + new URL(healeniumReportUrl + currentSessionId));
         String url = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId).getUrl();
         HttpRequestBase httpDelete = new HttpDelete(new URL(url) + request.getRequestURI());
+        healeniumBaseRequest.getSessionDelegateCache().remove(currentSessionId);
         return healeniumBaseRequest.executeToSeleniumServer(httpDelete);
     }
 }

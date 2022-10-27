@@ -10,8 +10,8 @@ import org.springframework.web.HttpRequestHandler;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Configuration("/**")
@@ -19,15 +19,17 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
 
     private final ProxyResponseConverter proxyResponseConverter;
 
-    public HealeniumProxyHttpHandler(ProxyResponseConverter healeniumProxyUtils) {
-        this.proxyResponseConverter = healeniumProxyUtils;
+    public HealeniumProxyHttpHandler(ProxyResponseConverter proxyResponseConverter) {
+        this.proxyResponseConverter = proxyResponseConverter;
     }
 
     @Override
-    public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        PrintWriter writer = response.getWriter();
+    public void handleRequest(HttpServletRequest request, HttpServletResponse response) {
+        PrintWriter writer = null;
         try {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding(String.valueOf(StandardCharsets.UTF_8));
+            writer = response.getWriter();
 
             HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
 
