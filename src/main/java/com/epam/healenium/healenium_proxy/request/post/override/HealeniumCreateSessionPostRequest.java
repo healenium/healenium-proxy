@@ -7,7 +7,6 @@ import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
-import org.openqa.selenium.Platform;
 import org.openqa.selenium.json.Json;
 import org.openqa.selenium.remote.CapabilityType;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +16,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -78,29 +76,26 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
             return responseData;
         }
 
-        String sessionId = updateCache(responseData);
+        String sessionId = updateCache(responseData, url);
         healeniumRestService.saveSessionId(sessionId);
         log.info("Report available at " + new URL(healeniumReportUrl + sessionId));
         return responseData;
     }
 
-    private String updateCache(String responseData) {
+    private String updateCache(String responseData, String url) {
         Map<String, Map<String, Object>> result = json.toType(responseData, Json.MAP_TYPE);
         Map<String, Object> value = result.get("value");
         String sessionId = (String) value.get("sessionId");
-        SessionDelegate sessionDelegate = buildSessionDelegate(value);
+        SessionDelegate sessionDelegate = buildSessionDelegate(value, url);
         healeniumBaseRequest.getSessionDelegateCache().put(sessionId, sessionDelegate);
         return sessionId;
     }
 
     @SuppressWarnings("unchecked")
-    private SessionDelegate buildSessionDelegate(Map<String, Object> value) {
+    private SessionDelegate buildSessionDelegate(Map<String, Object> value, String url) {
         SessionDelegate sessionDelegate = new SessionDelegate();
         Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault("capabilities", Collections.EMPTY_MAP);
         capabilities.remove(CapabilityType.PLATFORM);
-        String url = Arrays.asList(Platform.ANDROID, Platform.IOS).contains(Platform.fromString((String) capabilities.get(CapabilityType.PLATFORM_NAME)))
-                ? appiumUrl
-                : seleniumUrl;
         sessionDelegate.setCapabilities(capabilities);
         sessionDelegate.setUrl(url);
         return sessionDelegate;
