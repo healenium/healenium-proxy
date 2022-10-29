@@ -30,8 +30,8 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     @Value("${proxy.appium.url}")
     private String appiumUrl;
 
-    @Value("${proxy.healenium.report.url}")
-    private String healeniumReportUrl;
+    @Value("${proxy.healenium.server.url}")
+    private String healeniumServerUrl;
 
     private final HttpServletRequestService servletRequestService;
     private final HealeniumBaseRequest healeniumBaseRequest;
@@ -78,7 +78,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
 
         String sessionId = updateCache(responseData, url);
         healeniumRestService.saveSessionId(sessionId);
-        log.info("Report available at " + new URL(healeniumReportUrl + sessionId));
+        log.info("Report available at " + new URL(healeniumServerUrl + "/healenium/report/" + sessionId));
         return responseData;
     }
 
