@@ -17,8 +17,8 @@ import java.net.URL;
 @Service
 public class HealeniumDeleteRequest implements HealeniumHttpRequest {
 
-    @Value("${proxy.healenium.report.url}")
-    private String healeniumReportUrl;
+    @Value("${proxy.healenium.server.url}")
+    private String healeniumServerUrl;
 
     private final HealeniumBaseRequest healeniumBaseRequest;
     private final HttpServletRequestService servletRequestService;
@@ -36,7 +36,7 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
     @Override
     public String execute(HttpServletRequest request) throws IOException {
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        log.info("Report available at " + new URL(healeniumReportUrl + currentSessionId));
+        log.info("Report available at " + new URL(healeniumServerUrl + "/healenium/report/" + currentSessionId));
         String url = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId).getUrl();
         HttpRequestBase httpDelete = new HttpDelete(new URL(url) + request.getRequestURI());
         healeniumBaseRequest.getSessionDelegateCache().remove(currentSessionId);
