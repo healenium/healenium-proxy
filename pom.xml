@@ -20,7 +20,7 @@
 
 	<groupId>com.epam.healenium</groupId>
 	<artifactId>hlm-proxy</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
 
