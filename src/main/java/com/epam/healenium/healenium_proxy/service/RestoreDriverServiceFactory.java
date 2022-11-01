@@ -1,34 +1,28 @@
 package com.epam.healenium.healenium_proxy.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.Platform;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.openqa.selenium.remote.CapabilityType;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
 @Service
 public class RestoreDriverServiceFactory {
 
-    @Autowired
-    private List<RestoreDriverService> restoreDriverServices;
+    private final RestoreDriverService webRestoreDriverServices;
+    private final RestoreDriverService appNativeRestoreDriverServices;
 
-    private static final Map<Platform, RestoreDriverService> restoreDriverServicesCache = new HashMap<>();
-
-    @PostConstruct
-    public void initRequestCache() {
-        restoreDriverServices.forEach(service -> restoreDriverServicesCache.put(service.getPlatformName(), service));
+    public RestoreDriverServiceFactory(@Qualifier("restoreWebDriverServiceImpl") RestoreDriverService webRestoreDriverServices,
+                                       @Qualifier("restoreMobileNativeDriverServiceImpl") RestoreDriverService appNativeRestoreDriverServices) {
+        this.webRestoreDriverServices = webRestoreDriverServices;
+        this.appNativeRestoreDriverServices = appNativeRestoreDriverServices;
     }
 
-    public static RestoreDriverService getRestoreService(String platformName) {
-        RestoreDriverService service = restoreDriverServicesCache.get(Platform.fromString(platformName));
-        if (service == null) {
-            service = restoreDriverServicesCache.get(Platform.LINUX);
-        }
-        return service;
+    public RestoreDriverService getRestoreService(Map<String, Object> capabilities) {
+        return capabilities.containsKey(CapabilityType.BROWSER_NAME)
+                ? webRestoreDriverServices
+                : appNativeRestoreDriverServices;
     }
 }

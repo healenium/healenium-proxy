@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 public class HealeniumBaseRequest {
 
     @Getter
-    private PassiveExpiringMap<String, SessionDelegate> sessionDelegateCache = new PassiveExpiringMap<>(1, TimeUnit.DAYS);
+    private PassiveExpiringMap<String, SessionDelegate> sessionDelegateCache = new PassiveExpiringMap<>(8, TimeUnit.HOURS);
 
     public String executeToSeleniumServer(HttpRequestBase httpRequest) throws IOException {
         httpRequest.setHeader("Content-type", "application/json; charset=utf-8");

@@ -10,18 +10,17 @@
 	</parent>
 
 	<properties>
-		<selenium.version>4.3.0</selenium.version>
+		<selenium.version>4.5.0</selenium.version>
 		<netty.version>4.1.69.Final</netty.version>
 		<httpclient.version>4.5.13</httpclient.version>
 		<json.version>20210307</json.version>
 		<commons.collections4.version>4.4</commons.collections4.version>
-		<healenium.appium.version>1.3.0</healenium.appium.version>
-		<appium.java.client.version>7.6.0</appium.java.client.version>
+		<healenium.appium.version>1.4.0</healenium.appium.version>
 	</properties>
 
 	<groupId>com.epam.healenium</groupId>
 	<artifactId>hlm-proxy</artifactId>
-	<version>1.0.0</version>
+	<version>1.2.0</version>
 	<name>healenium-proxy</name>
 	<description>Proxy for Healenium</description>
 
@@ -67,9 +66,9 @@
 		</dependency>
 
 		<dependency>
-			<groupId>io.appium</groupId>
-			<artifactId>java-client</artifactId>
-			<version>${appium.java.client.version}</version>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.15.3</version>
 		</dependency>
 	</dependencies>
 
