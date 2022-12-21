@@ -1,29 +1,37 @@
 package com.epam.healenium.healenium_proxy.request.post;
 
-import com.epam.healenium.healenium_proxy.request.HealeniumBaseRequest;
+import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.request.post.override.HealeniumHttpPostRequest;
 import com.epam.healenium.healenium_proxy.request.post.override.HealeniumHttpPostRequestFactory;
+import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
-import lombok.AllArgsConstructor;
+import com.epam.healenium.healenium_proxy.service.SessionContextService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
+import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URL;
 
 @Slf4j
-@AllArgsConstructor
 @Service
 public class HealeniumPostRequest implements HealeniumHttpRequest {
 
     private final HttpServletRequestService servletRequestService;
-    private final HealeniumBaseRequest healeniumBaseRequest;
+    private final HealeniumRestService healeniumRestService;
     private final HealeniumHttpPostRequestFactory httpPostRequestFactory;
+    private final SessionContextService sessionContextService;
+
+    public HealeniumPostRequest(HttpServletRequestService servletRequestService,
+                                HealeniumRestService healeniumRestService,
+                                HealeniumHttpPostRequestFactory httpPostRequestFactory,
+                                SessionContextService sessionContextService) {
+        this.servletRequestService = servletRequestService;
+        this.healeniumRestService = healeniumRestService;
+        this.httpPostRequestFactory = httpPostRequestFactory;
+        this.sessionContextService = sessionContextService;
+    }
 
     @Override
     public String getType() {
@@ -37,21 +45,9 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
         if (postRequest != null) {
             return postRequest.execute(request);
         }
-
-        StringEntity entity = null;
-        try {
-            String requestBody = servletRequestService.getRequestBody(request);
-            entity = new StringEntity(requestBody);
-        } catch (UnsupportedEncodingException e) {
-            log.error("Error during execute Post Request. Message: {}, Exception: {}", e.getMessage(), e);
-        }
-
-        String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        String url = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId).getUrl();
-        HttpPost httpPost = new HttpPost(new URL(url) + requestURI);
-        httpPost.setEntity(entity);
-
-        return healeniumBaseRequest.executeToSeleniumServer(httpPost);
+        SessionContext sessionContext = sessionContextService.getSessionContext(request);
+        HttpRequest httpRequest = servletRequestService.encodePostRequest(request, sessionContext);
+        return healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
     }
 
 }

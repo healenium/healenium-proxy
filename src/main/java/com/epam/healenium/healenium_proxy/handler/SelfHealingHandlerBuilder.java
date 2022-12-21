@@ -11,30 +11,48 @@ import com.epam.healenium.handlers.proxy.BaseHandler;
 import com.epam.healenium.handlers.proxy.WebElementProxyHandler;
 import com.epam.healenium.healenium_proxy.mapper.ProxyHealeniumMapper;
 import com.typesafe.config.Config;
-import io.appium.java_client.AppiumDriver;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
 import static com.epam.healenium.SelfHealingDriver.setEngineFields;
 
 @Slf4j
-public class MobileSelfHealingHandler {
+public class SelfHealingHandlerBuilder {
 
-    public static SelfHealingHandler createSelfHealingWebHandler(RemoteWebDriver delegate, WebElement el, Config config) {
+    public static SelfHealingHandler buildSelfHealingWebHandlerDriver(RemoteWebDriver delegate, Config config) {
+        SelfHealingEngine engine = webEngine(delegate, config);
+        return new BaseHandler(engine);
+    }
+
+    public static SelfHealingHandler buildSelfHealingWebHandlerWebElement(RemoteWebDriver delegate, Config config) {
+        SelfHealingEngine engine = webEngine(delegate, config);
+        return new WebElementProxyHandler(engine);
+    }
+
+    public static SelfHealingHandler buildSelfHealingMobileNativeHandlerDriver(RemoteWebDriver delegate, Config config) {
+        SelfHealingEngine engine = mobileEngine(delegate, config);
+        return new BaseHandler(engine);
+    }
+
+    public static SelfHealingHandler buildSelfHealingMobileNativeHandlerWebElement(RemoteWebDriver delegate, Config config) {
+        SelfHealingEngine engine = mobileEngine(delegate, config);
+        return new WebElementProxyHandler(engine);
+    }
+
+    private static SelfHealingEngine webEngine(RemoteWebDriver delegate, Config config) {
         SelfHealingEngine engine = new SelfHealingEngine(delegate, config);
         setEngineFields(delegate, engine);
         engine.getClient().setMapper(new ProxyHealeniumMapper(new MobileStackTraceReader()));
-        return el == null ? new BaseHandler(engine) : new WebElementProxyHandler(el, engine);
+        return engine;
     }
 
-    public static SelfHealingHandler createSelfHealingMobileNativeAppHandler(AppiumDriver delegate, WebElement el, Config config) {
+    private static SelfHealingEngine mobileEngine(RemoteWebDriver delegate, Config config) {
         SelfHealingEngine engine = new MobileSelfHealingEngine(delegate, config);
         engine.setClient(new RestClient(engine.getConfig()));
         engine.setNodeService(new MobileNodeService(delegate));
         engine.setHealingService(new MobileHealingService(engine.getConfig(), delegate));
         engine.getClient().setMapper(new ProxyHealeniumMapper(new MobileStackTraceReader()));
-        return el == null ? new BaseHandler(engine) : new WebElementProxyHandler(el, engine);
+        return engine;
     }
 
 }
