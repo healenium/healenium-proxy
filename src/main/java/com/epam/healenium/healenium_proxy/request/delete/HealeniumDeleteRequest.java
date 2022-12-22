@@ -36,10 +36,12 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
     @Override
     public String execute(HttpServletRequest request) throws IOException {
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        log.info("Report available at " + new URL(healeniumServerUrl + "/healenium/report/" + currentSessionId));
         String url = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId).getUrl();
         HttpRequestBase httpDelete = new HttpDelete(new URL(url) + request.getRequestURI());
-        healeniumBaseRequest.getSessionDelegateCache().remove(currentSessionId);
+        if (String.format("/session/%s", currentSessionId).equals(request.getRequestURI())) {
+            log.info("Report available at " + new URL(healeniumServerUrl + "/healenium/report/" + currentSessionId));
+            healeniumBaseRequest.getSessionDelegateCache().remove(currentSessionId);
+        }
         return healeniumBaseRequest.executeToSeleniumServer(httpDelete);
     }
 }
