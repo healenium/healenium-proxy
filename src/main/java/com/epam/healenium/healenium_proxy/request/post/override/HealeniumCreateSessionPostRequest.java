@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostRequest {
 
@@ -37,17 +37,30 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
 
     @Override
     public String execute(HttpServletRequest request) {
+        final long then = System.currentTimeMillis();
         SessionContext sessionContext = sessionContextService.initSessionContext(request);
+        log.warn(this.getClass() + " 1: " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
 
         HttpRequest httpRequest = servletRequestService.encodePostRequest(request, sessionContext);
+        log.warn(this.getClass() + " 2: " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
+
         String responseData = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
+        log.warn(this.getClass() + " 3: " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
 
         if (jsonMapper.isErrorResponse(responseData)) {
             return responseData;
         }
 
+        log.warn(this.getClass() + " 4: " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
+
         String sessionId = sessionContextService.submitSessionContext(responseData, sessionContext);
-        healeniumRestService.saveSessionId(sessionId);
+        log.warn(this.getClass() + " 5: " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
+
+        healeniumRestService.restoreSessionOnServer(sessionContext.getUrl(), sessionId, sessionContext.getCapabilities());
+
+//        healeniumRestService.saveSessionId(sessionId);
+
+        log.warn(this.getClass() + " 6: " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
         return responseData;
     }
 

@@ -16,6 +16,7 @@
 		<json.version>20210307</json.version>
 		<commons.collections4.version>4.4</commons.collections4.version>
 		<healenium.appium.version>1.4.0</healenium.appium.version>
+		<okhttp3.version>4.9.3</okhttp3.version>
 	</properties>
 
 	<groupId>com.epam.healenium</groupId>
@@ -76,6 +77,12 @@
 			<groupId>org.jsoup</groupId>
 			<artifactId>jsoup</artifactId>
 			<version>1.15.3</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.epam.healenium</groupId>
+			<artifactId>healenium-web</artifactId>
+			<version>3.3.2</version>
 		</dependency>
 
 <!--		<dependency>-->

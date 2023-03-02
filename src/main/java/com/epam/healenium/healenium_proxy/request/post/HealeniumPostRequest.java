@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class HealeniumPostRequest implements HealeniumHttpRequest {
 

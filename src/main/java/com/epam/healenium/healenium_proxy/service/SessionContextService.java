@@ -5,8 +5,8 @@ import com.epam.healenium.handlers.proxy.WebElementProxyHandler;
 import com.epam.healenium.healenium_proxy.config.ProxyConfig;
 import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
-import com.epam.healenium.healenium_proxy.restore.RestoreDriverFactory;
 import com.epam.healenium.healenium_proxy.restore.RestoreDriver;
+import com.epam.healenium.healenium_proxy.restore.RestoreDriverFactory;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -22,9 +22,7 @@ import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static org.openqa.selenium.json.Json.MAP_TYPE;
-
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class SessionContextService {
 
@@ -79,10 +77,7 @@ public class SessionContextService {
 
     public void fillRestoreSelfHealingHandlers(String currentSessionId, SessionContext sessionContext) {
         RestoreDriver restoreDriver = restoreDriverFactory.getRestoreService(sessionContext.getCapabilities());
-        SelfHealingHandler selfHealingHandlerBase = restoreDriver.restoreSelfHealingHandlerDrive(currentSessionId, sessionContext, proxyConfig.getConfig(currentSessionId));
-        SelfHealingHandler selfHealingHandlerWebElement = restoreDriver.restoreSelfHealingHandlerWebElement(currentSessionId, sessionContext, proxyConfig.getConfig(currentSessionId));
-        sessionContext.setSelfHealingHandlerBase(selfHealingHandlerBase);
-        sessionContext.setSelfHealingHandlerWebElement(selfHealingHandlerWebElement);
+        restoreDriver.restoreSelfHealing(currentSessionId, sessionContext, proxyConfig.getConfig(currentSessionId));
     }
 
     public String submitSessionContext(String responseData, SessionContext sessionContext) {

@@ -18,7 +18,7 @@ import java.util.function.Function;
 
 import static org.openqa.selenium.json.Json.MAP_TYPE;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class JsonMapper {
 

@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.Disposable;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -19,13 +20,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class HealeniumRestService {
 
     private static final String HEALENIUM_REPORT_INIT_PATH = "/healenium/report/init/{uid}";
     private static final String HEALENIUM_SESSION_INIT_PATH = "/healenium/session";
     private static final String HEALENIUM_SAVE_ELEMENT_PATH = "/healenium/save/element";
+
+    private double timeValue;
 
     @Value("${proxy.healenium.container.url}")
     private String healeniumContainerUrl;
@@ -44,7 +47,7 @@ public class HealeniumRestService {
                 .subscribe();
     }
 
-    public void restoreSession(URL addressOfRemoteServer, String sessionId, Map<String, Object> sessionCapabilities) {
+    public void restoreSessionOnServer(URL addressOfRemoteServer, String sessionId, Map<String, Object> sessionCapabilities) {
         SessionDto sessionDto = new SessionDto(addressOfRemoteServer, sessionId, sessionCapabilities);
         final long then = System.currentTimeMillis();
         WebClient.builder()
@@ -55,8 +58,8 @@ public class HealeniumRestService {
                 .uri(HEALENIUM_SESSION_INIT_PATH)
                 .bodyValue(sessionDto)
                 .retrieve()
-                .bodyToMono(String.class)
-                .subscribe();
+                .bodyToMono(Void.TYPE)
+                .block();
         System.out.println("HEALENIUM_SESSION_INIT_PATH time: " + (System.currentTimeMillis() - then) / 1000.0);
     }
 
@@ -77,12 +80,17 @@ public class HealeniumRestService {
 
     public String executeToSeleniumServer(HttpRequest httpRequest, SessionContext sessionContext) {
         final long then = System.currentTimeMillis();
+        log.warn("Selenium server request: {}, {}", httpRequest.getMethod(), httpRequest.getUri());
         HttpResponse response = sessionContext.getHttpClient().execute(httpRequest);
-//        System.out.println("appium time: " + (System.currentTimeMillis() - then) / 1000.0);
-        return new BufferedReader(
+                String result = new BufferedReader(
                 new InputStreamReader(response.getContent().get(), StandardCharsets.UTF_8))
                 .lines()
                 .collect(Collectors.joining("\n"));
+        log.warn("Selenium server response: {}", result);
+        timeValue = timeValue + (System.currentTimeMillis() - then) / 1000.0;
+        System.out.println("selenium timeValue: " + timeValue);
+        return result;
+
     }
 
 }

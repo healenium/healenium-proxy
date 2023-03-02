@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.stream.Collectors;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Component
 public class HttpServletRequestService {
 

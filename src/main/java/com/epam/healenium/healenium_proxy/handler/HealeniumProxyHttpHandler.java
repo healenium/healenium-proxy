@@ -13,7 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Configuration("/**")
 public class HealeniumProxyHttpHandler implements HttpRequestHandler {
 

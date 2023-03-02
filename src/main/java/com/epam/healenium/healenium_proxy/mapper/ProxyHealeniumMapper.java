@@ -13,13 +13,14 @@ public class ProxyHealeniumMapper extends HealeniumMapper {
     }
 
     @Override
-    public RequestDto buildDto(By by, String currentUrl) {
+    public RequestDto buildDto(By by, String command, String currentUrl) {
         String[] locatorParts = by.toString().split(":", 2);
         RequestDto dto = new RequestDto()
                 .setLocator(locatorParts[1].trim())
                 .setType(locatorParts[0].trim());
         dto.setClassName(HealeniumFindElementPostRequest.class.getName());
         dto.setMethodName("findElement");
+        dto.setCommand(command);
         dto.setUrl(currentUrl);
         return dto;
     }

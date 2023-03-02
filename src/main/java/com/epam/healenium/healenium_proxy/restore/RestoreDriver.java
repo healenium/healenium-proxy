@@ -6,7 +6,10 @@ import com.typesafe.config.Config;
 
 public interface RestoreDriver {
 
-    SelfHealingHandler restoreSelfHealingHandlerDrive(String currentSessionId, SessionContext sessionContext, Config config);
+//    SelfHealingHandler restoreSelfHealingHandlerDrive(String currentSessionId, SessionContext sessionContext, Config config);
+//
+//    SelfHealingHandler restoreSelfHealingHandlerWebElement(String currentSessionId, SessionContext sessionContext, Config config);
+//
+    void restoreSelfHealing(String sessionId, SessionContext sessionContext, Config config);
 
-    SelfHealingHandler restoreSelfHealingHandlerWebElement(String currentSessionId, SessionContext sessionContext, Config config);
 }

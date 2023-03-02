@@ -6,14 +6,13 @@ import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
 import com.epam.healenium.healenium_proxy.service.SessionContextService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.maven.model.InputLocation;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class HealeniumDeleteRequest implements HealeniumHttpRequest {
 
@@ -42,6 +41,13 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
         HttpRequest httpRequest = servletRequestService.encodeDeleteRequest(request, sessionContext);
         if (String.format("/session/%s", currentSessionId).equals(request.getRequestURI())) {
             sessionContextService.deleteSessionContextFromCache(currentSessionId);
+            log.info("delete time: " + String.valueOf((System.currentTimeMillis())));
+            sessionContext.getSelfHealingHandlerBase().quit();
+            final long then = System.currentTimeMillis();
+            String s = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
+//            return "{\"value\":null}";
+            log.info("delete delta:  " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
+            return s;
         }
         return healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
     }

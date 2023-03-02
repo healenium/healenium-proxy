@@ -1,6 +1,9 @@
 package com.epam.healenium.healenium_proxy.restore;
 
+import com.epam.healenium.SelfHealingEngine;
 import com.epam.healenium.handlers.SelfHealingHandler;
+import com.epam.healenium.handlers.proxy.BaseHandler;
+import com.epam.healenium.handlers.proxy.WebElementProxyHandler;
 import com.epam.healenium.healenium_proxy.command.HealeniumCommandExecutor;
 import com.epam.healenium.healenium_proxy.handler.SelfHealingHandlerBuilder;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
@@ -13,26 +16,30 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.stereotype.Service;
 
 
-@AllArgsConstructor
 @Service
 public class RestoreWebDriver implements RestoreDriver {
 
-    private final HealeniumRestService restService;
+//    @Override
+//    public SelfHealingHandler restoreSelfHealingHandlerDrive(String sessionId, SessionContext sessionContext, Config config) {
+//        RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, sessionContext);
+//        return SelfHealingHandlerBuilder.buildSelfHealingWebHandlerDriver(restoreWebDriver, config);
+//    }
+//
+//    @Override
+//    public SelfHealingHandler restoreSelfHealingHandlerWebElement(String sessionId, SessionContext sessionContext, Config config) {
+//        RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, sessionContext);
+//        return SelfHealingHandlerBuilder.buildSelfHealingWebHandlerWebElement(restoreWebDriver, config);
+//    }
 
     @Override
-    public SelfHealingHandler restoreSelfHealingHandlerDrive(String sessionId, SessionContext sessionContext, Config config) {
+    public void restoreSelfHealing(String sessionId, SessionContext sessionContext, Config config) {
         RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, sessionContext);
-        return SelfHealingHandlerBuilder.buildSelfHealingWebHandlerDriver(restoreWebDriver, config);
-    }
-
-    @Override
-    public SelfHealingHandler restoreSelfHealingHandlerWebElement(String sessionId, SessionContext sessionContext, Config config) {
-        RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, sessionContext);
-        return SelfHealingHandlerBuilder.buildSelfHealingWebHandlerWebElement(restoreWebDriver, config);
+        SelfHealingEngine engine = SelfHealingHandlerBuilder.webEngine(restoreWebDriver, config);
+        sessionContext.setSelfHealingHandlerBase(new BaseHandler(engine));
+        sessionContext.setSelfHealingHandlerWebElement(new WebElementProxyHandler(engine));
     }
 
     private RemoteWebDriver restoreWebDriverFromSession(String sessionId, SessionContext sessionContext) {
-//        restService.restoreSession(sessionContext.getUrl(), sessionId, sessionContext.getCapabilities());
         CommandExecutor executor = new HealeniumCommandExecutor(sessionContext.getUrl(), sessionId, sessionContext);
         return new RemoteWebDriver(executor, new MutableCapabilities(sessionContext.getCapabilities()));
     }

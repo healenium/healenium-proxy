@@ -8,7 +8,7 @@ import org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec;
 import java.lang.reflect.Field;
 import java.net.URL;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 public class HealeniumMobileCommandExecutor extends HealeniumCommandExecutor {
 
     public HealeniumMobileCommandExecutor(URL addressOfRemoteServer, String sessionId, SessionContext sessionContext) {
