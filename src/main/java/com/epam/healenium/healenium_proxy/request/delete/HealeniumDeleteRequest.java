@@ -37,17 +37,11 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
     @Override
     public String execute(HttpServletRequest request) throws IOException {
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        SessionContext sessionContext = sessionContextService.getSessionContextCache().get(currentSessionId);
+        SessionContext sessionContext = sessionContextService.getSessionContext(currentSessionId);
         HttpRequest httpRequest = servletRequestService.encodeDeleteRequest(request, sessionContext);
         if (String.format("/session/%s", currentSessionId).equals(request.getRequestURI())) {
             sessionContextService.deleteSessionContextFromCache(currentSessionId);
-            log.info("delete time: " + String.valueOf((System.currentTimeMillis())));
             sessionContext.getSelfHealingHandlerBase().quit();
-            final long then = System.currentTimeMillis();
-            String s = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
-//            return "{\"value\":null}";
-            log.info("delete delta:  " + String.valueOf((System.currentTimeMillis() - then) / 1000.0));
-            return s;
         }
         return healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
     }

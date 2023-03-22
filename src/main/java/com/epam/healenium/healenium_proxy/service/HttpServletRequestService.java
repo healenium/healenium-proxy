@@ -12,11 +12,8 @@ import org.openqa.selenium.remote.http.HttpMethod;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Component;
 
-import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -51,12 +48,12 @@ public class HttpServletRequestService {
                 : null;
     }
 
-    public HttpRequest encodePostRequest(HttpServletRequest r, SessionContext sessionContext) {
-        String requestURI = r.getRequestURI();
+    public HttpRequest encodePostRequest(HttpServletRequest httpServletRequest, SessionContext sessionContext) {
+        String requestURI = httpServletRequest.getRequestURI();
         HttpRequest request = new HttpRequest(HttpMethod.POST, sessionContext.getUrl() + requestURI);
         String content = "/session".equals(requestURI)
                 ? sessionContext.getCreateSessionReqBody()
-                : getRequestBody(r);
+                : getRequestBody(httpServletRequest);
         byte[] data = content.getBytes(StandardCharsets.UTF_8);
         request.setHeader("Content-Length", String.valueOf(data.length));
         request.setHeader("Content-Type", MediaType.JSON_UTF_8.toString());

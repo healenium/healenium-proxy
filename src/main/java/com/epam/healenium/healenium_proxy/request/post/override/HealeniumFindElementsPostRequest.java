@@ -40,9 +40,6 @@ public class HealeniumFindElementsPostRequest extends HealeniumFindElementPostRe
 
     protected String findElement(By by, SelfHealingHandler selfHealingDriver, SessionContext sessionContext) {
         List<WebElement> currentWebElements = selfHealingDriver.findElements(by);
-//        for (WebElement currentWebElement : currentWebElements) {
-//            System.out.println("finded element: " + by + " id: " + ((RemoteWebElement) currentWebElement).getId());
-//        }
         currentWebElements.forEach(e -> sessionContext.getWebElements().put(((RemoteWebElement) e).getId(), e));
         return proxyResponseConverter.generateResponse(currentWebElements);
     }

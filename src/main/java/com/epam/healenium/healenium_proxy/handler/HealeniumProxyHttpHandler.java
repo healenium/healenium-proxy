@@ -25,8 +25,7 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
 
     @Override
     public void handleRequest(HttpServletRequest request, HttpServletResponse response) {
-        System.out.println(request.getRequestURI());
-        final long then = System.currentTimeMillis();
+        log.debug("[Request Handler] Selenium Request URI: {}", request.getRequestURI());
         PrintWriter writer = null;
         try {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -36,11 +35,10 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
             HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
 
             String data = healeniumHttpRequest.execute(request);
-//            System.out.println("response: " + data);
+            log.debug("[Request Handler] Response data: {}", data);
             writer.write(data);
-//            System.out.println((System.currentTimeMillis() - then) / 1000.0);
         } catch (Exception e) {
-            log.error("Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e);
+            log.error("[Request Handler] Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e);
             response.setStatus(proxyResponseConverter.getHttpStatusCode(e));
             writer.write(proxyResponseConverter.generateResponse(e));
         } finally {

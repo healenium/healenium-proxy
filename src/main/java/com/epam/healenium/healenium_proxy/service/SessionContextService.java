@@ -7,7 +7,6 @@ import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.restore.RestoreDriver;
 import com.epam.healenium.healenium_proxy.restore.RestoreDriverFactory;
-import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.map.PassiveExpiringMap;
@@ -28,16 +27,9 @@ public class SessionContextService {
 
     @Value("${proxy.selenium.url}")
     private String seleniumUrl;
-
     @Value("${proxy.appium.url}")
     private String appiumUrl;
 
-    @Value("${proxy.healenium.server.url}")
-    private String healeniumServerUrl;
-
-    private static final String HEALENIUM_REPORT_PATH = "/healenium/report/";
-
-    @Getter
     private PassiveExpiringMap<String, SessionContext> sessionContextCache = new PassiveExpiringMap<>(8, TimeUnit.HOURS);
 
     private final RestoreDriverFactory restoreDriverFactory;
@@ -57,20 +49,31 @@ public class SessionContextService {
 
     @SneakyThrows
     public SessionContext initSessionContext(HttpServletRequest request) {
-        URL url;
         String requestBody = servletRequestService.getRequestBody(request);
-        SessionContext sessionContext = new SessionContext()
-                .setCreateSessionReqBody(requestBody);
         boolean isAppium = jsonMapper.isAppium(requestBody);
+        String url = isAppium ? appiumUrl : seleniumUrl;
+        SessionContext sessionContext = getDefaultSessionContext(url);
+        log.info("[Proxy] Using Selenium server: {}", url);
+        return sessionContext.setCreateSessionReqBody(requestBody);
+    }
+
+    @SneakyThrows
+    public SessionContext getDefaultSessionContext() {
+        log.warn("[Proxy] Using default Selenium by URL: {}", seleniumUrl);
+        return getDefaultSessionContext(seleniumUrl);
+    }
+
+    private SessionContext getDefaultSessionContext(String urlStr) throws MalformedURLException {
+        URL url;
         try {
-            url = isAppium ? new URL(appiumUrl) : new URL(seleniumUrl);
+            url = new URL(urlStr);
         } catch (MalformedURLException e) {
             url = new URL("http://localhost:4444/");
-            log.error("Error create selenium server url: {}", e.getMessage());
-            log.error("Connect to selenium server: {}", url);
+            log.error("[Proxy] Error create selenium server url: {}", e.getMessage());
+            log.error("[Proxy] Connect to selenium server: {}", url);
         }
         HttpClient httpClient = servletRequestService.getHttpClient(url);
-        return sessionContext
+        return new SessionContext()
                 .setUrl(url)
                 .setHttpClient(httpClient);
     }
@@ -83,7 +86,7 @@ public class SessionContextService {
     public String submitSessionContext(String responseData, SessionContext sessionContext) {
         String sessionId = enrichSessionContext(responseData, sessionContext);
         sessionContextCache.put(sessionId, sessionContext);
-        log.info("Report available at: {}{}{}", healeniumServerUrl, HEALENIUM_REPORT_PATH, sessionId);
+        log.debug("[Create Session] Add SessionContext to cache. Id: {}, SC: {}", sessionId, sessionContext);
         return sessionId;
     }
 
@@ -97,7 +100,16 @@ public class SessionContextService {
 
     public SessionContext getSessionContext(HttpServletRequest request) {
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        return sessionContextCache.get(currentSessionId);
+        return getSessionContext(currentSessionId);
+    }
+
+    public SessionContext getSessionContext(String currentSessionId) {
+        SessionContext sessionContext = sessionContextCache.get(currentSessionId);
+        if (sessionContext == null) {
+            sessionContext = getDefaultSessionContext();
+        }
+        return sessionContext;
+
     }
 
     public SelfHealingHandler getSelfHealingDriver(String id, SessionContext sessionContext) {
@@ -108,7 +120,7 @@ public class SessionContextService {
     }
 
     public void deleteSessionContextFromCache(String currentSessionId) {
-        log.info("Report available at: {}{}{}", healeniumServerUrl, HEALENIUM_REPORT_PATH, currentSessionId);
+        log.debug("[Delete Session] Delete SessionContext from cache. Id: {}", currentSessionId);
         sessionContextCache.remove(currentSessionId);
     }
 }
