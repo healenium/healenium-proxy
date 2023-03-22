@@ -1,31 +1,32 @@
 package com.epam.healenium.healenium_proxy.request.delete;
 
-import com.epam.healenium.healenium_proxy.request.HealeniumBaseRequest;
+import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
+import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
+import com.epam.healenium.healenium_proxy.service.SessionContextService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.springframework.beans.factory.annotation.Value;
+import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.net.URL;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class HealeniumDeleteRequest implements HealeniumHttpRequest {
 
-    @Value("${proxy.healenium.server.url}")
-    private String healeniumServerUrl;
-
-    private final HealeniumBaseRequest healeniumBaseRequest;
+    private final HealeniumRestService healeniumRestService;
     private final HttpServletRequestService servletRequestService;
+    private final SessionContextService sessionContextService;
 
-    public HealeniumDeleteRequest(HealeniumBaseRequest healeniumBaseRequest, HttpServletRequestService healeniumProxyUtils) {
-        this.healeniumBaseRequest = healeniumBaseRequest;
+
+    public HealeniumDeleteRequest(HealeniumRestService healeniumRestService,
+                                  HttpServletRequestService healeniumProxyUtils,
+                                  SessionContextService sessionContextService) {
+        this.healeniumRestService = healeniumRestService;
         this.servletRequestService = healeniumProxyUtils;
+        this.sessionContextService = sessionContextService;
     }
 
     @Override
@@ -36,10 +37,12 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
     @Override
     public String execute(HttpServletRequest request) throws IOException {
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        log.info("Report available at " + new URL(healeniumServerUrl + "/healenium/report/" + currentSessionId));
-        String url = healeniumBaseRequest.getSessionDelegateCache().get(currentSessionId).getUrl();
-        HttpRequestBase httpDelete = new HttpDelete(new URL(url) + request.getRequestURI());
-        healeniumBaseRequest.getSessionDelegateCache().remove(currentSessionId);
-        return healeniumBaseRequest.executeToSeleniumServer(httpDelete);
+        SessionContext sessionContext = sessionContextService.getSessionContext(currentSessionId);
+        HttpRequest httpRequest = servletRequestService.encodeDeleteRequest(request, sessionContext);
+        if (String.format("/session/%s", currentSessionId).equals(request.getRequestURI())) {
+            sessionContextService.deleteSessionContextFromCache(currentSessionId);
+            sessionContext.getSelfHealingHandlerBase().quit();
+        }
+        return healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
     }
 }

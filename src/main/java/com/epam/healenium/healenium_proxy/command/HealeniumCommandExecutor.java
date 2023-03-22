@@ -1,6 +1,6 @@
 package com.epam.healenium.healenium_proxy.command;
 
-import com.epam.healenium.healenium_proxy.model.SessionDelegate;
+import com.epam.healenium.healenium_proxy.model.SessionContext;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.Command;
 import org.openqa.selenium.remote.DriverCommand;
@@ -13,16 +13,16 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 public class HealeniumCommandExecutor extends HttpCommandExecutor {
 
     private final String sessionId;
-    private final SessionDelegate sessionDelegate;
+    private final SessionContext sessionContext;
 
-    public HealeniumCommandExecutor(URL addressOfRemoteServer, String sessionId, SessionDelegate sessionDelegate) {
+    public HealeniumCommandExecutor(URL addressOfRemoteServer, String sessionId, SessionContext sessionContext) {
         super(addressOfRemoteServer);
         this.sessionId = sessionId;
-        this.sessionDelegate = sessionDelegate;
+        this.sessionContext = sessionContext;
     }
 
     @Override
@@ -33,7 +33,7 @@ public class HealeniumCommandExecutor extends HttpCommandExecutor {
         Response response = new Response();
         response.setSessionId(sessionId);
         response.setStatus(0);
-        response.setValue(sessionDelegate.getCapabilities());
+        response.setValue(sessionContext.getCapabilities());
         updateCodec();
         return response;
     }
