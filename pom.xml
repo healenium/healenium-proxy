@@ -17,6 +17,7 @@
 		<commons.collections4.version>4.4</commons.collections4.version>
 		<healenium.appium.version>${appium}</healenium.appium.version>
 		<okhttp3.version>4.9.3</okhttp3.version>
+		<lombok.version>1.18.22</lombok.version>
 	</properties>
 
 	<groupId>com.epam.healenium</groupId>
@@ -78,7 +79,11 @@
 			<artifactId>jsoup</artifactId>
 			<version>1.15.3</version>
 		</dependency>
-
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>${lombok.version}</version>
+		</dependency>
 	</dependencies>
 
 	<build>
