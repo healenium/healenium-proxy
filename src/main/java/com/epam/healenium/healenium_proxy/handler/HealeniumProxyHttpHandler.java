@@ -13,7 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Configuration("/**")
 public class HealeniumProxyHttpHandler implements HttpRequestHandler {
 
@@ -25,6 +25,7 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
 
     @Override
     public void handleRequest(HttpServletRequest request, HttpServletResponse response) {
+        log.debug("[Request Handler] Selenium Request URI: {}", request.getRequestURI());
         PrintWriter writer = null;
         try {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -34,9 +35,10 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
             HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
 
             String data = healeniumHttpRequest.execute(request);
+            log.debug("[Request Handler] Response data: {}", data);
             writer.write(data);
         } catch (Exception e) {
-            log.error("Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e);
+            log.error("[Request Handler] Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e);
             response.setStatus(proxyResponseConverter.getHttpStatusCode(e));
             writer.write(proxyResponseConverter.generateResponse(e));
         } finally {

@@ -1,50 +1,33 @@
 package com.epam.healenium.healenium_proxy.request.post.override;
 
-import com.epam.healenium.healenium_proxy.model.SessionDelegate;
-import com.epam.healenium.healenium_proxy.request.HealeniumBaseRequest;
+import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
+import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
+import com.epam.healenium.healenium_proxy.service.SessionContextService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.openqa.selenium.json.Json;
-import org.openqa.selenium.remote.CapabilityType;
-import org.springframework.beans.factory.annotation.Value;
+import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URL;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
-@Slf4j
+@Slf4j(topic = "healenium")
 @Service
 public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostRequest {
 
-    @Value("${proxy.selenium.url}")
-    private String seleniumUrl;
-
-    @Value("${proxy.appium.url}")
-    private String appiumUrl;
-
-    @Value("${proxy.healenium.server.url}")
-    private String healeniumServerUrl;
-
     private final HttpServletRequestService servletRequestService;
-    private final HealeniumBaseRequest healeniumBaseRequest;
     private final HealeniumRestService healeniumRestService;
-
-    private final Json json = new Json();
+    private final SessionContextService sessionContextService;
+    private final JsonMapper jsonMapper;
 
     public HealeniumCreateSessionPostRequest(HttpServletRequestService servletRequestService,
-                                             HealeniumBaseRequest healeniumBaseRequest,
-                                             HealeniumRestService healeniumRestService) {
+                                             HealeniumRestService healeniumRestService,
+                                             SessionContextService sessionContextService,
+                                             JsonMapper jsonMapper) {
         this.servletRequestService = servletRequestService;
-        this.healeniumBaseRequest = healeniumBaseRequest;
         this.healeniumRestService = healeniumRestService;
+        this.sessionContextService = sessionContextService;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -53,69 +36,17 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     }
 
     @Override
-    public String execute(HttpServletRequest request) throws IOException {
-        String requestBody = servletRequestService.getRequestBody(request);
-        Map<String, Map<String, Object>> bodyMap = json.toType(requestBody, Json.MAP_TYPE);
-        String url = !isMobile(bodyMap.get("capabilities")) ? seleniumUrl : appiumUrl;
-
-        StringEntity entity = null;
-        try {
-            entity = new StringEntity(requestBody);
-        } catch (UnsupportedEncodingException e) {
-            log.error("Error during build entity. Message: {}, Exception: {}", e.getMessage(), e);
-        }
-
-        HttpPost httpPost = new HttpPost(new URL(url) + request.getRequestURI());
-        httpPost.setEntity(entity);
-
-        String responseData = healeniumBaseRequest.executeToSeleniumServer(httpPost);
-        Map<String, Map<String, Object>> responseDataMap = json.toType(responseData, Json.MAP_TYPE);
-
-        Map<String, Object> valueMap = responseDataMap.get("value");
-        if (valueMap != null && valueMap.containsKey("error")) {
+    public String execute(HttpServletRequest request) {
+        SessionContext sessionContext = sessionContextService.initSessionContext(request);
+        HttpRequest httpRequest = servletRequestService.encodePostRequest(request, sessionContext);
+        String responseData = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
+        log.debug("[Create Session] Response from Selenium Server: {}", responseData);
+        if (jsonMapper.isErrorResponse(responseData)) {
             return responseData;
         }
-
-        String sessionId = updateCache(responseData, url);
-        healeniumRestService.saveSessionId(sessionId);
-        log.info("Report available at " + new URL(healeniumServerUrl + "/healenium/report/" + sessionId));
+        String sessionId = sessionContextService.submitSessionContext(responseData, sessionContext);
+        healeniumRestService.restoreSessionOnServer(sessionContext.getUrl(), sessionId, sessionContext.getCapabilities());
         return responseData;
-    }
-
-    private String updateCache(String responseData, String url) {
-        Map<String, Map<String, Object>> result = json.toType(responseData, Json.MAP_TYPE);
-        Map<String, Object> value = result.get("value");
-        String sessionId = (String) value.get("sessionId");
-        SessionDelegate sessionDelegate = buildSessionDelegate(value, url);
-        healeniumBaseRequest.getSessionDelegateCache().put(sessionId, sessionDelegate);
-        return sessionId;
-    }
-
-    @SuppressWarnings("unchecked")
-    private SessionDelegate buildSessionDelegate(Map<String, Object> value, String url) {
-        SessionDelegate sessionDelegate = new SessionDelegate();
-        Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault("capabilities", Collections.EMPTY_MAP);
-        capabilities.remove(CapabilityType.PLATFORM);
-        sessionDelegate.setCapabilities(capabilities);
-        sessionDelegate.setUrl(url);
-        return sessionDelegate;
-    }
-
-    public boolean isMobile(Map<String, Object> capabilities) {
-        boolean isMobile = false;
-        Object alwaysMatch = capabilities.get("alwaysMatch");
-        if (alwaysMatch != null) {
-            isMobile = "android".equalsIgnoreCase((String) ((Map<?, ?>) alwaysMatch).get(CapabilityType.PLATFORM_NAME))
-                    || "ios".equalsIgnoreCase((String) ((Map<?, ?>) alwaysMatch).get(CapabilityType.PLATFORM_NAME));
-        }
-        if (!isMobile) {
-            isMobile = ((List) capabilities.get("firstMatch")).stream()
-                    .flatMap(lm -> ((Map) lm).entrySet().stream())
-                    .anyMatch(c -> CapabilityType.PLATFORM_NAME.equals(((Map.Entry<?, ?>) c).getKey())
-                            && ("android".equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())
-                            || "ios".equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())));
-        }
-        return isMobile;
     }
 
 }
