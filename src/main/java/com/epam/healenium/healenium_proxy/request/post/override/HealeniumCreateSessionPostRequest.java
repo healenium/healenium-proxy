@@ -44,8 +44,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         if (jsonMapper.isErrorResponse(responseData)) {
             return responseData;
         }
-        String sessionId = sessionContextService.submitSessionContext(responseData, sessionContext);
-        healeniumRestService.restoreSessionOnServer(sessionContext.getUrl(), sessionId, sessionContext.getCapabilities());
+        sessionContextService.submitSessionContext(responseData, sessionContext);
         return responseData;
     }
 
