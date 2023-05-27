@@ -42,7 +42,7 @@ public class HealeniumRestService {
     }
 
     public String executeToSeleniumServer(HttpRequest httpRequest, SessionContext sessionContext) {
-        log.debug("[Proxy] Selenium server request: {}, {}", httpRequest.getMethod(), httpRequest.getUri());
+        log.debug("[Proxy] Selenium server request: {}, {}, {}", httpRequest.getMethod(), httpRequest.getUri(), httpRequest.getContent());
         HttpResponse response = sessionContext.getHttpClient().execute(httpRequest);
         String result = new BufferedReader(
                 new InputStreamReader(response.getContent().get(), StandardCharsets.UTF_8))
