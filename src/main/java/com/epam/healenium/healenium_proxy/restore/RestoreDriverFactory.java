@@ -1,6 +1,7 @@
 package com.epam.healenium.healenium_proxy.restore;
 
 import lombok.extern.slf4j.Slf4j;
+import org.mapstruct.ap.internal.util.Strings;
 import org.openqa.selenium.remote.CapabilityType;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class RestoreDriverFactory {
 
     public RestoreDriver getRestoreService(Map<String, Object> capabilities) {
         return capabilities.containsKey(CapabilityType.BROWSER_NAME)
+                && !Strings.isEmpty((String) capabilities.get(CapabilityType.BROWSER_NAME))
                 ? webRestoreDriverServices
                 : appNativeRestoreDriverServices;
     }

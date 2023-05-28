@@ -92,11 +92,14 @@ public class JsonMapper {
                     || MobilePlatform.IOS.equalsIgnoreCase((String) ((Map<?, ?>) alwaysMatch).get(CapabilityType.PLATFORM_NAME));
         }
         if (!isMobile) {
-            isMobile = ((List) capabilities.get(FIRSTMATCH)).stream()
-                    .flatMap(lm -> ((Map) lm).entrySet().stream())
-                    .anyMatch(c -> CapabilityType.PLATFORM_NAME.equals(((Map.Entry<?, ?>) c).getKey())
-                            && (MobilePlatform.ANDROID.equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())
-                            || MobilePlatform.IOS.equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())));
+            Object firstMatch = capabilities.get(FIRSTMATCH);
+            if (firstMatch != null) {
+                isMobile = ((List) firstMatch).stream()
+                        .flatMap(lm -> ((Map) lm).entrySet().stream())
+                        .anyMatch(c -> CapabilityType.PLATFORM_NAME.equals(((Map.Entry<?, ?>) c).getKey())
+                                && (MobilePlatform.ANDROID.equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())
+                                || MobilePlatform.IOS.equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())));
+            }
         }
         return isMobile;
     }
