@@ -75,7 +75,6 @@ public class JsonMapper {
 
     public Map<String, Object> getCapabilities(Map<String, Object> value) {
         Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault(CAPABILITIES, Collections.EMPTY_MAP);
-        capabilities.remove(CapabilityType.PLATFORM);
         return capabilities;
     }
 
