@@ -40,7 +40,7 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
         SessionContext sessionContext = sessionContextService.initSessionContext(request);
         HttpRequest httpRequest = servletRequestService.encodePostRequest(request, sessionContext);
         String responseData = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
-        log.debug("[Create Session] Response from Selenium Server: {}", responseData);
+        log.info("[Create Session] Response from Selenium Server: {}", responseData);
         if (jsonMapper.isErrorResponse(responseData)) {
             return responseData;
         }
