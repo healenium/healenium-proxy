@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Service;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Slf4j(topic = "healenium")
 @Service

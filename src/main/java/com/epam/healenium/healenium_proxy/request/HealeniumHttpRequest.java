@@ -1,7 +1,7 @@
 package com.epam.healenium.healenium_proxy.request;
 
-import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import jakarta.servlet.http.HttpServletRequest;
 
 public interface HealeniumHttpRequest {
 
