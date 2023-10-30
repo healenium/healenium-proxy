@@ -9,9 +9,7 @@ proxy:
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
   appium:
-#    url: ${APPIUM_SERVER_URL:http://localhost:4723/wd/hub}
-#    url: ${APPIUM_SERVER_URL:https://healenium-demo:mobitru_ak_ToECWcNbBSqxAQzbJ9uWSL_8pRV2cO1UP3fT5i3useAsU6xocdO9UHM8o60B9IU0rkIi1i7VXZWpqiStZ0g@app.mobitru.com/wd/hub}
-    url: ${APPIUM_SERVER_URL:http://alexreif_7nAQRi:E5zGSid2iwMrHqzyYSyL@hub.browserstack.com/wd/hub}
+    url: ${APPIUM_SERVER_URL:http://localhost:4723/wd/hub}
   healenium:
     container:
       url: ${HEALENIUM_SERVICE:http://localhost:7878}
