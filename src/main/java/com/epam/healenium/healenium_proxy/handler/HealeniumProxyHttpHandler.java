@@ -3,13 +3,15 @@ package com.epam.healenium.healenium_proxy.handler;
 import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequestFactory;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.web.HttpRequestHandler;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 
@@ -24,7 +26,7 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
     }
 
     @Override
-    public void handleRequest(HttpServletRequest request, HttpServletResponse response) {
+    public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         log.debug("[Request Handler] Selenium Request URI: {}", request.getRequestURI());
         PrintWriter writer = null;
         try {
