@@ -41,7 +41,10 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
         HttpRequest httpRequest = servletRequestService.encodeDeleteRequest(request, sessionContext);
         if (String.format("/session/%s", currentSessionId).equals(request.getRequestURI())) {
             sessionContextService.deleteSessionContextFromCache(currentSessionId);
-            sessionContext.getSelfHealingHandlerBase().quit();
+            SelfHealingHandler selfHealingHandler = sessionContext.getSelfHealingHandlerBase();
+            if (selfHealingHandler != null) {
+                selfHealingHandler.quit();
+            }
         }
         return healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
     }
