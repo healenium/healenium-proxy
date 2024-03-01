@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.request.get;
 
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
@@ -34,7 +35,7 @@ public class HealeniumGetRequest implements HealeniumHttpRequest {
     }
 
     @Override
-    public String execute(HttpServletRequest request) throws IOException {
+    public OriginalResponse execute(HttpServletRequest request) throws IOException {
         SessionContext sessionContext = sessionContextService.getSessionContext(request);
         HttpRequest httpRequest = servletRequestService.encodeGetRequest(request, sessionContext);
         return healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);

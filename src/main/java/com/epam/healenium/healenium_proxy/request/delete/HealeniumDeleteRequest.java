@@ -1,6 +1,7 @@
 package com.epam.healenium.healenium_proxy.request.delete;
 
 import com.epam.healenium.handlers.SelfHealingHandler;
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
@@ -36,7 +37,7 @@ public class HealeniumDeleteRequest implements HealeniumHttpRequest {
     }
 
     @Override
-    public String execute(HttpServletRequest request) throws IOException {
+    public OriginalResponse execute(HttpServletRequest request) throws IOException {
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
         SessionContext sessionContext = sessionContextService.getSessionContext(currentSessionId);
         HttpRequest httpRequest = servletRequestService.encodeDeleteRequest(request, sessionContext);

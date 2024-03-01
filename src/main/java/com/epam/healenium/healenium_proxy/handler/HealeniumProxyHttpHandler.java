@@ -1,6 +1,7 @@
 package com.epam.healenium.healenium_proxy.handler;
 
 import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequestFactory;
 import jakarta.servlet.ServletException;
@@ -32,13 +33,15 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
         try {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding(String.valueOf(StandardCharsets.UTF_8));
-            writer = response.getWriter();
+
 
             HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
 
-            String data = healeniumHttpRequest.execute(request);
-            log.debug("[Request Handler] Response data: {}", data);
-            writer.write(data);
+            OriginalResponse originalResponse = healeniumHttpRequest.execute(request);
+            log.debug("[Request Handler] Response data: {}", originalResponse.getBody());
+            response.setStatus(originalResponse.getStatus());
+            writer = response.getWriter();
+            writer.write(originalResponse.getBody());
         } catch (Exception e) {
             log.error("[Request Handler] Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e);
             response.setStatus(proxyResponseConverter.getHttpStatusCode(e));

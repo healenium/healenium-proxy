@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.request.post;
 
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.request.post.override.HealeniumHttpPostRequest;
@@ -39,7 +40,7 @@ public class HealeniumPostRequest implements HealeniumHttpRequest {
     }
 
     @Override
-    public String execute(HttpServletRequest request) throws IOException {
+    public OriginalResponse execute(HttpServletRequest request) throws IOException {
         String requestURI = request.getRequestURI();
         HealeniumHttpPostRequest postRequest = httpPostRequestFactory.getRequest(requestURI);
         if (postRequest != null) {
