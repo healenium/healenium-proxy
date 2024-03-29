@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.model;
 
+import com.epam.healenium.SelfHealingEngine;
 import com.epam.healenium.handlers.SelfHealingHandler;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -25,5 +26,6 @@ public class SessionContext {
     private CommandExecutor commandExecutor;
     private String createSessionReqBody;
     private Map<String, List<String>> storedSelectors = new HashMap<>();
+    private SelfHealingEngine selfHealingEngine;
 
 }

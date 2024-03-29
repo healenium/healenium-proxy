@@ -46,6 +46,7 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
         OriginalResponse originalResponse = new OriginalResponse();
         originalResponse.setBody(elementResponse);
         originalResponse.setStatus(200);
+        log.info("[Find Element] {}", elementResponse);
         return originalResponse;
     }
 

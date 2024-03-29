@@ -86,7 +86,6 @@ public class SessionContextService {
     public String submitSessionContext(String responseData, SessionContext sessionContext) {
         String sessionId = enrichSessionContext(responseData, sessionContext);
         sessionContextCache.put(sessionId, sessionContext);
-        log.debug("[Create Session] Add SessionContext to cache. Id: {}, SC: {}", sessionId, sessionContext);
         return sessionId;
     }
 
@@ -120,7 +119,7 @@ public class SessionContextService {
     }
 
     public void deleteSessionContextFromCache(String currentSessionId) {
-        log.debug("[Delete Session] Delete SessionContext from cache. Id: {}", currentSessionId);
+        log.debug("[Delete Session] Delete SessionContext. Id: {}", currentSessionId);
         sessionContextCache.remove(currentSessionId);
     }
 }

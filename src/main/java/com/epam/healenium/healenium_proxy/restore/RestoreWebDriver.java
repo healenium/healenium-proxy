@@ -22,6 +22,7 @@ public class RestoreWebDriver implements RestoreDriver {
         SelfHealingEngine engine = SelfHealingHandlerBuilder.webEngine(restoreWebDriver, config);
         sessionContext.setSelfHealingHandlerBase(new BaseHandler(engine));
         sessionContext.setSelfHealingHandlerWebElement(new WebElementProxyHandler(engine));
+        sessionContext.setSelfHealingEngine(engine);
     }
 
     private RemoteWebDriver restoreWebDriverFromSession(String sessionId, SessionContext sessionContext) {

@@ -6,11 +6,11 @@ import com.epam.healenium.healenium_proxy.request.HealeniumHttpRequest;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
 import com.epam.healenium.healenium_proxy.service.SessionContextService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.springframework.stereotype.Service;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 @Slf4j(topic = "healenium")

@@ -33,21 +33,23 @@ public class HealeniumProxyHttpHandler implements HttpRequestHandler {
         try {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding(String.valueOf(StandardCharsets.UTF_8));
-
-
             HealeniumHttpRequest healeniumHttpRequest = HealeniumHttpRequestFactory.getRequest(request.getMethod());
-
             OriginalResponse originalResponse = healeniumHttpRequest.execute(request);
-            log.debug("[Request Handler] Response data: {}", originalResponse.getBody());
+            String responseBody = originalResponse.getBody();
             response.setStatus(originalResponse.getStatus());
-            writer = response.getWriter();
-            writer.write(originalResponse.getBody());
+            if (responseBody != null) {
+                writer = response.getWriter();
+                writer.write(responseBody);
+            }
         } catch (Exception e) {
-            log.error("[Request Handler] Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e);
+            log.error("[Request Handler] Error during handle Proxy Request. Message: {}, Exception: {}", e.getMessage(), e.toString());
             response.setStatus(proxyResponseConverter.getHttpStatusCode(e));
+            writer = response.getWriter();
             writer.write(proxyResponseConverter.generateResponse(e));
         } finally {
-            writer.close();
+            if (writer != null) {
+                writer.close();
+            }
         }
     }
 }
