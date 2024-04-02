@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.rest;
 
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.model.SessionDto;
 import lombok.extern.slf4j.Slf4j;
@@ -41,15 +42,16 @@ public class HealeniumRestService {
                 .block();
     }
 
-    public String executeToSeleniumServer(HttpRequest httpRequest, SessionContext sessionContext) {
-        log.debug("[Proxy] Selenium server request: {}, {}, {}", httpRequest.getMethod(), httpRequest.getUri(), httpRequest.getContent());
+    public OriginalResponse executeToSeleniumServer(HttpRequest httpRequest, SessionContext sessionContext) {
         HttpResponse response = sessionContext.getHttpClient().execute(httpRequest);
         String result = new BufferedReader(
                 new InputStreamReader(response.getContent().get(), StandardCharsets.UTF_8))
                 .lines()
                 .collect(Collectors.joining("\n"));
-        log.debug("[Proxy] Selenium server response: {}", result);
-        return result;
+        OriginalResponse originalResponse = new OriginalResponse();
+        originalResponse.setBody(result);
+        originalResponse.setStatus(response.getStatus());
+        return originalResponse;
 
     }
 

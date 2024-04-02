@@ -1,6 +1,7 @@
 package com.epam.healenium.healenium_proxy.request.post.override;
 
 import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
@@ -36,15 +37,15 @@ public class HealeniumCreateSessionPostRequest implements HealeniumHttpPostReque
     }
 
     @Override
-    public String execute(HttpServletRequest request) {
+    public OriginalResponse execute(HttpServletRequest request) {
         SessionContext sessionContext = sessionContextService.initSessionContext(request);
         HttpRequest httpRequest = servletRequestService.encodePostRequest(request, sessionContext);
-        String responseData = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
-        log.info("[Create Session] Response from Selenium Server: {}", responseData);
-        if (jsonMapper.isErrorResponse(responseData)) {
+        OriginalResponse responseData = healeniumRestService.executeToSeleniumServer(httpRequest, sessionContext);
+        log.info("[Create Session] Response from Selenium Server: {}", responseData.getBody());
+        if (jsonMapper.isErrorResponse(responseData.getBody())) {
             return responseData;
         }
-        sessionContextService.submitSessionContext(responseData, sessionContext);
+        sessionContextService.submitSessionContext(responseData.getBody(), sessionContext);
         return responseData;
     }
 

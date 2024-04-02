@@ -3,6 +3,7 @@ package com.epam.healenium.healenium_proxy.request.post.override;
 import com.epam.healenium.handlers.SelfHealingHandler;
 import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
 import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
@@ -34,14 +35,19 @@ public class HealeniumFindElementPostRequest implements HealeniumHttpPostRequest
     }
 
     @Override
-    public String execute(HttpServletRequest request) {
+    public OriginalResponse execute(HttpServletRequest request) {
         Map<String, Object> requestBodyMap = jsonMapper.convertRequest(request);
         String id = (String) requestBodyMap.get("id");
         String currentSessionId = servletRequestService.getCurrentSessionId(request);
         SessionContext sessionContext = sessionContextService.getSessionContext(currentSessionId);
         SelfHealingHandler selfHealingDriver = sessionContextService.getSelfHealingDriver(id, sessionContext);
         By by = jsonMapper.getBy(requestBodyMap);
-        return findElement(by, selfHealingDriver, sessionContext);
+        String elementResponse = findElement(by, selfHealingDriver, sessionContext);
+        OriginalResponse originalResponse = new OriginalResponse();
+        originalResponse.setBody(elementResponse);
+        originalResponse.setStatus(200);
+        log.info("[Find Element] {}", elementResponse);
+        return originalResponse;
     }
 
     protected String findElement(By by, SelfHealingHandler selfHealingDriver, SessionContext sessionContext) {

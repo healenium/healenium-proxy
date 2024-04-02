@@ -3,6 +3,7 @@ package com.epam.healenium.healenium_proxy.request.post.override;
 import com.epam.healenium.handlers.SelfHealingHandler;
 import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
 import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
+import com.epam.healenium.healenium_proxy.model.OriginalResponse;
 import com.epam.healenium.healenium_proxy.model.SessionContext;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
@@ -34,7 +35,7 @@ public class HealeniumFindElementsPostRequest extends HealeniumFindElementPostRe
     }
 
     @Override
-    public String execute(HttpServletRequest request) {
+    public OriginalResponse execute(HttpServletRequest request) {
         return super.execute(request);
     }
 
