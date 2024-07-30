@@ -5,7 +5,7 @@ import com.epam.healenium.handlers.proxy.BaseHandler;
 import com.epam.healenium.handlers.proxy.WebElementProxyHandler;
 import com.epam.healenium.healenium_proxy.command.HealeniumMobileCommandExecutor;
 import com.epam.healenium.healenium_proxy.handler.SelfHealingHandlerBuilder;
-import com.epam.healenium.healenium_proxy.model.SessionContext;
+import com.epam.healenium.healenium_proxy.model.ProxySessionContext;
 import com.typesafe.config.Config;
 import io.appium.java_client.AppiumDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
@@ -17,16 +17,16 @@ import org.springframework.stereotype.Service;
 public class RestoreMobileNativeDriver implements RestoreDriver {
 
     @Override
-    public void restoreSelfHealing(String sessionId, SessionContext sessionContext, Config config) {
-        RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, sessionContext);
+    public void restoreSelfHealing(String sessionId, ProxySessionContext proxySessionContext, Config config) {
+        RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, proxySessionContext);
         SelfHealingEngine engine = SelfHealingHandlerBuilder.mobileEngine(restoreWebDriver, config);
-        sessionContext.setSelfHealingHandlerBase(new BaseHandler(engine));
-        sessionContext.setSelfHealingHandlerWebElement(new WebElementProxyHandler(engine));
-        sessionContext.setSelfHealingEngine(engine);
+        proxySessionContext.setSelfHealingHandlerBase(new BaseHandler(engine));
+        proxySessionContext.setSelfHealingHandlerWebElement(new WebElementProxyHandler(engine));
+        proxySessionContext.setSelfHealingEngine(engine);
     }
 
-    private RemoteWebDriver restoreWebDriverFromSession(String sessionId, SessionContext sessionContext) {
-        HttpCommandExecutor executor = new HealeniumMobileCommandExecutor(sessionContext.getUrl(), sessionId, sessionContext);
-        return new AppiumDriver(executor, new DesiredCapabilities(sessionContext.getCapabilities()));
+    private RemoteWebDriver restoreWebDriverFromSession(String sessionId, ProxySessionContext proxySessionContext) {
+        HttpCommandExecutor executor = new HealeniumMobileCommandExecutor(proxySessionContext.getUrl(), sessionId, proxySessionContext);
+        return new AppiumDriver(executor, new DesiredCapabilities(proxySessionContext.getCapabilities()));
     }
 }

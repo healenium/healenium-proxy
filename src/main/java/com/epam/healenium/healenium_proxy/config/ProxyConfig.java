@@ -7,8 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-
 @Component
 public class ProxyConfig {
 
@@ -19,13 +17,13 @@ public class ProxyConfig {
 
     public ProxyConfig(Environment env) {
         this.env = env;
+        initConfig();
     }
 
     public Config getConfig(String currentSessionId) {
         return config.withValue("sessionKey", ConfigValueFactory.fromAnyRef(currentSessionId));
     }
 
-    @PostConstruct
     private void initConfig() {
         config = ConfigFactory.empty()
                 .withValue("hlm.server.url", ConfigValueFactory.fromAnyRef(env.getProperty("proxy.healenium.container.url")))

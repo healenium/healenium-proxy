@@ -15,7 +15,7 @@ import java.util.Map;
 
 @Data
 @Accessors(chain = true)
-public class SessionContext {
+public class ProxySessionContext {
 
     private Map<String, Object> capabilities;
     private URL url;

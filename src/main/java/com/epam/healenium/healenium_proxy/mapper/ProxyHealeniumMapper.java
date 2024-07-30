@@ -1,6 +1,5 @@
 package com.epam.healenium.healenium_proxy.mapper;
 
-import com.epam.healenium.healenium_proxy.request.post.override.HealeniumFindElementPostRequest;
 import com.epam.healenium.mapper.HealeniumMapper;
 import com.epam.healenium.model.RequestDto;
 import com.epam.healenium.utils.StackTraceReader;
@@ -18,7 +17,7 @@ public class ProxyHealeniumMapper extends HealeniumMapper {
         RequestDto dto = new RequestDto()
                 .setLocator(locatorParts[1].trim())
                 .setType(locatorParts[0].trim());
-        dto.setClassName(HealeniumFindElementPostRequest.class.getName());
+        dto.setClassName("HealeniumFindElementPostRequest");
         dto.setMethodName("findElement");
         dto.setCommand(command);
         dto.setUrl(currentUrl);

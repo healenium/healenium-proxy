@@ -1,6 +1,6 @@
 package com.epam.healenium.healenium_proxy.command;
 
-import com.epam.healenium.healenium_proxy.model.SessionContext;
+import com.epam.healenium.healenium_proxy.model.ProxySessionContext;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.Command;
 import org.openqa.selenium.remote.DriverCommand;
@@ -17,12 +17,12 @@ import java.net.URL;
 public class HealeniumCommandExecutor extends HttpCommandExecutor {
 
     private final String sessionId;
-    private final SessionContext sessionContext;
+    private final ProxySessionContext proxySessionContext;
 
-    public HealeniumCommandExecutor(URL addressOfRemoteServer, String sessionId, SessionContext sessionContext) {
+    public HealeniumCommandExecutor(URL addressOfRemoteServer, String sessionId, ProxySessionContext proxySessionContext) {
         super(addressOfRemoteServer);
         this.sessionId = sessionId;
-        this.sessionContext = sessionContext;
+        this.proxySessionContext = proxySessionContext;
     }
 
     @Override
@@ -32,8 +32,8 @@ public class HealeniumCommandExecutor extends HttpCommandExecutor {
         }
         Response response = new Response();
         response.setSessionId(sessionId);
-        response.setStatus(0);
-        response.setValue(sessionContext.getCapabilities());
+        response.setValue(proxySessionContext.getCapabilities());
+        response.setState("success");
         updateCodec();
         return response;
     }
@@ -50,7 +50,7 @@ public class HealeniumCommandExecutor extends HttpCommandExecutor {
             responseCodec.setAccessible(true);
             responseCodec.set(this, new W3CHttpResponseCodec());
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            log.error("Error during update codec. Message: {}, Exception: {}", e.getMessage(), e);
+            log.error("Error during update codec. Message: {}, Exception: {}", e.getMessage(), e.toString());
         }
     }
 }

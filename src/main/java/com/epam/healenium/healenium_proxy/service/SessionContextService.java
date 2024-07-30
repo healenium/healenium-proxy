@@ -4,18 +4,16 @@ import com.epam.healenium.handlers.SelfHealingHandler;
 import com.epam.healenium.handlers.proxy.WebElementProxyHandler;
 import com.epam.healenium.healenium_proxy.config.ProxyConfig;
 import com.epam.healenium.healenium_proxy.mapper.JsonMapper;
-import com.epam.healenium.healenium_proxy.model.SessionContext;
+import com.epam.healenium.healenium_proxy.model.ProxySessionContext;
 import com.epam.healenium.healenium_proxy.restore.RestoreDriver;
 import com.epam.healenium.healenium_proxy.restore.RestoreDriverFactory;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.map.PassiveExpiringMap;
+import org.apache.commons.lang3.ObjectUtils;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.remote.http.HttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
@@ -27,69 +25,54 @@ public class SessionContextService {
 
     @Value("${proxy.selenium.url}")
     private String seleniumUrl;
-    @Value("${proxy.appium.url}")
-    private String appiumUrl;
 
-    private PassiveExpiringMap<String, SessionContext> sessionContextCache = new PassiveExpiringMap<>(8, TimeUnit.HOURS);
+    private PassiveExpiringMap<String, ProxySessionContext> sessionContextCache = new PassiveExpiringMap<>(8, TimeUnit.HOURS);
 
     private final RestoreDriverFactory restoreDriverFactory;
-    private final HttpServletRequestService servletRequestService;
     private final ProxyConfig proxyConfig;
     private final JsonMapper jsonMapper;
 
-    public SessionContextService(RestoreDriverFactory restoreDriverFactory,
-                                 HttpServletRequestService servletRequestService,
-                                 ProxyConfig proxyConfig,
-                                 JsonMapper jsonMapper) {
+    public SessionContextService(RestoreDriverFactory restoreDriverFactory, ProxyConfig proxyConfig, JsonMapper jsonMapper) {
         this.restoreDriverFactory = restoreDriverFactory;
-        this.servletRequestService = servletRequestService;
         this.proxyConfig = proxyConfig;
         this.jsonMapper = jsonMapper;
     }
 
-    @SneakyThrows
-    public SessionContext initSessionContext(HttpServletRequest request) {
-        String requestBody = servletRequestService.getRequestBody(request);
-        boolean isAppium = jsonMapper.isAppium(requestBody);
-        String url = isAppium ? appiumUrl : seleniumUrl;
-        SessionContext sessionContext = getDefaultSessionContext(url);
+    public ProxySessionContext initSessionContext(String request) {
+        String url = seleniumUrl;
+        ProxySessionContext sessionContext = getDefaultSessionContext(url);
         log.info("[Proxy] Using Selenium server: {}", url);
-        return sessionContext.setCreateSessionReqBody(requestBody);
+        return sessionContext.setCreateSessionReqBody(request);
     }
 
-    @SneakyThrows
-    public SessionContext getDefaultSessionContext() {
+    public ProxySessionContext getDefaultSessionContext() {
         log.warn("[Proxy] Using default Selenium by URL: {}", seleniumUrl);
         return getDefaultSessionContext(seleniumUrl);
     }
 
-    private SessionContext getDefaultSessionContext(String urlStr) throws MalformedURLException {
-        URL url;
+    private ProxySessionContext getDefaultSessionContext(String urlStr) {
+        URL url = null;
         try {
             url = new URL(urlStr);
         } catch (MalformedURLException e) {
-            url = new URL("http://localhost:4444/");
             log.error("[Proxy] Error create selenium server url: {}", e.getMessage());
-            log.error("[Proxy] Connect to selenium server: {}", url);
         }
-        HttpClient httpClient = servletRequestService.getHttpClient(url);
-        return new SessionContext()
-                .setUrl(url)
-                .setHttpClient(httpClient);
+        return new ProxySessionContext()
+                .setUrl(url);
     }
 
-    public void fillRestoreSelfHealingHandlers(String currentSessionId, SessionContext sessionContext) {
+    public void fillRestoreSelfHealingHandlers(String currentSessionId, ProxySessionContext sessionContext) {
         RestoreDriver restoreDriver = restoreDriverFactory.getRestoreService(sessionContext.getCapabilities());
         restoreDriver.restoreSelfHealing(currentSessionId, sessionContext, proxyConfig.getConfig(currentSessionId));
     }
 
-    public String submitSessionContext(String responseData, SessionContext sessionContext) {
+    public String submitSessionContext(String responseData, ProxySessionContext sessionContext) {
         String sessionId = enrichSessionContext(responseData, sessionContext);
         sessionContextCache.put(sessionId, sessionContext);
         return sessionId;
     }
 
-    public String enrichSessionContext(String responseData, SessionContext sessionContext) {
+    public String enrichSessionContext(String responseData, ProxySessionContext sessionContext) {
         Map<String, Object> value = jsonMapper.getValue(responseData);
         sessionContext.setCapabilities(jsonMapper.getCapabilities(value));
         String sessionId = (String) value.get("sessionId");
@@ -97,21 +80,11 @@ public class SessionContextService {
         return sessionId;
     }
 
-    public SessionContext getSessionContext(HttpServletRequest request) {
-        String currentSessionId = servletRequestService.getCurrentSessionId(request);
-        return getSessionContext(currentSessionId);
+    public ProxySessionContext getSessionContext(String currentSessionId) {
+        return ObjectUtils.defaultIfNull(sessionContextCache.get(currentSessionId), getDefaultSessionContext());
     }
 
-    public SessionContext getSessionContext(String currentSessionId) {
-        SessionContext sessionContext = sessionContextCache.get(currentSessionId);
-        if (sessionContext == null) {
-            sessionContext = getDefaultSessionContext();
-        }
-        return sessionContext;
-
-    }
-
-    public SelfHealingHandler getSelfHealingDriver(String id, SessionContext sessionContext) {
+    public SelfHealingHandler getSelfHealingDriver(String id, ProxySessionContext sessionContext) {
         WebElement el = sessionContext.getWebElements().get(id);
         return el != null
                 ? ((WebElementProxyHandler) sessionContext.getSelfHealingHandlerWebElement()).setDelegate(el)

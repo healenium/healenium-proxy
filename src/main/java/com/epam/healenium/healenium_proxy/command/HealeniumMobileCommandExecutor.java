@@ -1,6 +1,6 @@
 package com.epam.healenium.healenium_proxy.command;
 
-import com.epam.healenium.healenium_proxy.model.SessionContext;
+import com.epam.healenium.healenium_proxy.model.ProxySessionContext;
 import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec;
@@ -11,8 +11,8 @@ import java.net.URL;
 @Slf4j(topic = "healenium")
 public class HealeniumMobileCommandExecutor extends HealeniumCommandExecutor {
 
-    public HealeniumMobileCommandExecutor(URL addressOfRemoteServer, String sessionId, SessionContext sessionContext) {
-        super(addressOfRemoteServer, sessionId, sessionContext);
+    public HealeniumMobileCommandExecutor(URL addressOfRemoteServer, String sessionId, ProxySessionContext proxySessionContext) {
+        super(addressOfRemoteServer, sessionId, proxySessionContext);
     }
 
     @Override
@@ -28,7 +28,7 @@ public class HealeniumMobileCommandExecutor extends HealeniumCommandExecutor {
             responseCodec.setAccessible(true);
             responseCodec.set(this, new W3CHttpResponseCodec());
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            log.error("Error during update codec. Message: {}, Exception: {}", e.getMessage(), e);
+            log.error("Error during update codec. Message: {}, Exception: {}", e.getMessage(), e.toString());
         }
     }
 }
