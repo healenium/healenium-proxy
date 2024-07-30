@@ -1,6 +1,5 @@
 package com.epam.healenium.healenium_proxy.mapper;
 
-import com.epam.healenium.healenium_proxy.service.HttpServletRequestService;
 import com.google.common.collect.ImmutableMap;
 import io.appium.java_client.AppiumBy;
 import io.appium.java_client.remote.MobilePlatform;
@@ -10,7 +9,6 @@ import org.openqa.selenium.json.Json;
 import org.openqa.selenium.remote.CapabilityType;
 import org.springframework.stereotype.Service;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,18 +42,7 @@ public class JsonMapper {
                     .put("class", By::className)
                     .build();
 
-    private final HttpServletRequestService servletRequestService;
-
     private final Json json = new Json();
-
-    public JsonMapper(HttpServletRequestService servletRequestService) {
-        this.servletRequestService = servletRequestService;
-    }
-
-    public Map<String, Object> convertRequest(HttpServletRequest request) {
-        String requestBody = servletRequestService.getRequestBody(request);
-        return json.toType(requestBody, MAP_TYPE);
-    }
 
     public boolean isAppium(String requestBody) {
         Map<String, Object> bodyMap = json.toType(requestBody, MAP_TYPE);
@@ -66,6 +53,10 @@ public class JsonMapper {
     public boolean isErrorResponse(String responseData) {
         Map<String, Object> valueMap = getValue(responseData);
         return valueMap != null && valueMap.containsKey(ERROR);
+    }
+
+    public Map<String, Object> convertRequest(String requestBody) {
+        return json.toType(requestBody, MAP_TYPE);
     }
 
     public Map<String, Object> getValue(String responseData) {

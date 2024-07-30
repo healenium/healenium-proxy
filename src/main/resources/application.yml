@@ -1,15 +1,9 @@
 server:
   port: ${SPRING_SERVER_PORT:8085}
-spring:
-  banner:
-    image:
-      location:
-        /images/banner.png
+
 proxy:
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
-  appium:
-    url: ${APPIUM_SERVER_URL:http://localhost:4723/wd/hub}
   healenium:
     container:
       url: ${HEALENIUM_SERVICE:http://localhost:7878}
@@ -18,6 +12,53 @@ proxy:
   imitate:
     container:
       url: ${IMITATE_SERVICE:http://localhost:8000}
+
+spring:
+  banner:
+    location: /images/banner.txt
+  cloud:
+    gateway:
+      routes:
+        - id: selenium_session
+          uri: ${proxy.selenium.url}
+          predicates:
+            - Path=/session
+          filters:
+            - name: InitSession
+
+        - id: selenium_element
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/session/{session_id}/element
+          filters:
+            - name: FindElementRequest
+
+        - id: selenium_child_element
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/session/{session_id}/element/{parent_element_id}/element
+          filters:
+            - name: FindElementRequest
+
+        - id: selenium_elements
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/session/{session_id}/elements
+          filters:
+            - name: FindElementsRequest
+
+        - id: selenium_child_elements
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/session/{session_id}/element/{parent_element_id}/elements
+          filters:
+            - name: FindElementsRequest
+
+        - id: fallback_route
+          uri: ${proxy.selenium.url}
+          predicates:
+            - Path=/**
+
 healing:
   healenabled: ${HEAL_ENABLED:true}
   recoverytries: ${RECOVERY_TRIES:1}
