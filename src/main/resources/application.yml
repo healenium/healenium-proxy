@@ -54,6 +54,14 @@ spring:
           filters:
             - name: FindElementsRequest
 
+        - id: selenium_execute_sync
+          uri: ${proxy.selenium.url}
+          predicates:
+            - Path=/session/{session_id}/execute/sync
+            - Method=POST
+          filters:
+            - name: ExecuteScript
+
         - id: fallback_route
           uri: ${proxy.selenium.url}
           predicates:

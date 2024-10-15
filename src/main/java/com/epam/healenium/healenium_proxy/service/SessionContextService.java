@@ -81,7 +81,11 @@ public class SessionContextService {
     }
 
     public ProxySessionContext getSessionContext(String currentSessionId) {
-        return ObjectUtils.defaultIfNull(sessionContextCache.get(currentSessionId), getDefaultSessionContext());
+        ProxySessionContext proxySessionContext = sessionContextCache.get(currentSessionId);
+        if (proxySessionContext == null) {
+            throw new RuntimeException("[Proxy] Session context not found: " + currentSessionId);
+        }
+        return proxySessionContext;
     }
 
     public SelfHealingHandler getSelfHealingDriver(String id, ProxySessionContext sessionContext) {

@@ -75,6 +75,7 @@ public class ProxyFilterService {
         HttpHeaders headers = response.getHeaders();
         headers.add(HttpHeaders.CONTENT_TYPE, CONTENT_TYPE_VALUE);
         headers.add(HttpHeaders.CACHE_CONTROL, CACHE_CONTROL_VALUE);
+        headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     }
 
 }
