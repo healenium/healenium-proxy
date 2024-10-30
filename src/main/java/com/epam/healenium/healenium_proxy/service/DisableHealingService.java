@@ -31,7 +31,7 @@ public class DisableHealingService {
         proxySessionContext.getSelfHealingEngine().getSessionContext().setWaitCommand(Boolean.parseBoolean(disableHealingValue));
         exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(200));
         log.info("[Execute Script] Disable healing command value: {}", disableHealingValue);
-        return Mono.just("");
+        return Mono.just("{\"value\": true}");
     }
 
     public String getDisableHealingMessageValue(String responseBody) {
