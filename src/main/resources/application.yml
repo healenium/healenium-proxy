@@ -18,6 +18,13 @@ spring:
     location: /images/banner.txt
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:5173"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            maxAge: 3600
       routes:
         - id: selenium_session
           uri: ${proxy.selenium.url}
@@ -62,6 +69,11 @@ spring:
           filters:
             - name: ExecuteScript
 
+        - id: healenium_backend
+          uri: ${proxy.healenium.server.url}
+          predicates:
+            - Path=/healenium/**,/screenshots/**
+
         - id: fallback_route
           uri: ${proxy.selenium.url}
           predicates:
@@ -74,7 +86,10 @@ healing:
 logging:
   level:
     ROOT: ${SPRING_LOG_LEVEL:INFO}
-    org.springframework: INFO
+    org.springframework: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.cloud.gateway: DEBUG
     org.mongodb.driver.connection: WARN
     healenium: ${HLM_LOG_LEVEL:debug}
   pattern:

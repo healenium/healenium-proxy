@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.3</version>
+        <version>3.4.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -22,7 +22,7 @@
         <httpclient.version>4.5.13</httpclient.version>
         <json.version>20231013</json.version>
         <commons.collections4.version>4.4</commons.collections4.version>
-        <healenium.appium.version>1.5.11</healenium.appium.version>
+        <healenium.appium.version>1.5.13</healenium.appium.version>
         <okhttp3.version>4.9.3</okhttp3.version>
         <jsoup.version>1.15.3</jsoup.version>
         <commons.compress.version>1.26.2</commons.compress.version>
