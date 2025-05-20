@@ -5,6 +5,7 @@ import com.epam.healenium.healenium_proxy.model.ReportContentDto;
 import com.epam.healenium.healenium_proxy.model.ReportDto;
 import com.epam.healenium.healenium_proxy.model.SeleniumHealthCheckDto;
 import com.epam.healenium.healenium_proxy.model.SessionDto;
+import com.epam.healenium.healenium_proxy.model.elitea.EliteaDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -26,6 +27,7 @@ public class HealeniumRestService {
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_HEALTH_CHECK_URI = "/actuator/health";
     private static final String GET_ALL_REPORTS_URI = "/healenium/report/reports/";
+    private static final String UPDATE_LOCATOR_CODE_POSITION = "/healenium/elitea/v2/";
 
     @Value("${proxy.healenium.container.url}")
     private String healeniumContainerUrl;
@@ -101,5 +103,29 @@ public class HealeniumRestService {
                 .retrieve()
                 .bodyToMono(byte[].class);
 
+    }
+
+    public Mono<EliteaDto> updateLocatorCodePosition(String reportId, String projectName, String repoName, String authorizationHeader) {
+        return WebClient.builder()
+                .baseUrl(healeniumContainerUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, authorizationHeader)
+                .build()
+                .get()
+                .uri(UPDATE_LOCATOR_CODE_POSITION + reportId + "/" + projectName + "/" + repoName)
+                .retrieve()
+                .bodyToMono(EliteaDto.class);
+    }
+
+    public Mono<EliteaDto> createMR(String reportId, String projectName, String repoName, String authorizationHeader) {
+        return WebClient.builder()
+                .baseUrl(healeniumContainerUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, authorizationHeader)
+                .build()
+                .get()
+                .uri(UPDATE_LOCATOR_CODE_POSITION + "mr/" + reportId + "/" + projectName + "/" + repoName)
+                .retrieve()
+                .bodyToMono(EliteaDto.class);
     }
 }

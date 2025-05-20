@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
@@ -31,5 +33,34 @@ public class ApiController {
                     return ResponseEntity.ok(report);
                 });
     }
+
+    @PostMapping("/elitea/locators/code-position/{reportId}")
+    public Mono<ResponseEntity<?>> updateLocatorCodePosition(@RequestHeader("Authorization") String authorizationHeader,
+                                                             @PathVariable String reportId) {
+        String projectName = "healenium";
+        String repositoryName = "healenium-example-maven";
+        return restService.updateLocatorCodePosition(reportId, projectName, repositoryName, authorizationHeader)
+                .map(report -> {
+                    if (report == null) {
+                        return ResponseEntity.notFound().build();
+                    }
+                    return ResponseEntity.ok(report);
+                });
+    }
+
+    @GetMapping("/elitea/report/create-mr/{reportId}")
+    public Mono<ResponseEntity<?>> createMR(@RequestHeader("Authorization") String authorizationHeader,
+                                                             @PathVariable String reportId) {
+        String projectName = "healenium";
+        String repositoryName = "healenium-example-maven";
+        return restService.createMR(reportId, projectName, repositoryName, authorizationHeader)
+                .map(report -> {
+                    if (report == null) {
+                        return ResponseEntity.notFound().build();
+                    }
+                    return ResponseEntity.ok(report);
+                });
+    }
+
 
 }
