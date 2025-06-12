@@ -70,7 +70,7 @@ spring:
             - name: ExecuteScript
 
         - id: healenium_backend
-          uri: ${proxy.healenium.server.url}
+          uri: ${proxy.healenium.container.url}
           predicates:
             - Path=/healenium/**,/screenshots/**
 

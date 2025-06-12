@@ -17,6 +17,7 @@ public class ReportContentDto {
     private String name;
     private String time;
     private List<ReportRecord> data = new ArrayList<>();
+    private boolean detected;
 
     @Data
     public static class ReportRecord {

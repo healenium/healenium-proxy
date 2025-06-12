@@ -6,6 +6,7 @@ import com.epam.healenium.healenium_proxy.model.ReportDto;
 import com.epam.healenium.healenium_proxy.model.SeleniumHealthCheckDto;
 import com.epam.healenium.healenium_proxy.model.SessionDto;
 import com.epam.healenium.healenium_proxy.model.elitea.EliteaDto;
+import com.epam.healenium.healenium_proxy.model.elitea.EliteaSelectorDetectionRequestDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -27,7 +28,9 @@ public class HealeniumRestService {
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_HEALTH_CHECK_URI = "/actuator/health";
     private static final String GET_ALL_REPORTS_URI = "/healenium/report/reports/";
-    private static final String UPDATE_LOCATOR_CODE_POSITION = "/healenium/elitea/v2/";
+    private static final String SELECTOR_DETECTION_URI = "/healenium/elitea/v2/";
+    private static final String ELITEA_URL = "https://nexus.elitea.ai";
+    private static final String ELITEA_AGENT_RUN = "/api/v1/applications/predict/prompt_lib/743/";
 
     @Value("${proxy.healenium.container.url}")
     private String healeniumContainerUrl;
@@ -105,16 +108,16 @@ public class HealeniumRestService {
 
     }
 
-    public Mono<EliteaDto> updateLocatorCodePosition(String reportId, String projectName, String repoName, String authorizationHeader) {
+    public Mono<List<EliteaSelectorDetectionRequestDto>> selectorDetectionByReport(String reportId, String projectName, String repoName, String authorizationHeader) {
         return WebClient.builder()
                 .baseUrl(healeniumContainerUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .defaultHeader(HttpHeaders.AUTHORIZATION, authorizationHeader)
                 .build()
                 .get()
-                .uri(UPDATE_LOCATOR_CODE_POSITION + reportId + "/" + projectName + "/" + repoName)
+                .uri(SELECTOR_DETECTION_URI + reportId + "/" + projectName + "/" + repoName)
                 .retrieve()
-                .bodyToMono(EliteaDto.class);
+                .bodyToMono(new ParameterizedTypeReference<List<EliteaSelectorDetectionRequestDto>> () {});
     }
 
     public Mono<EliteaDto> createMR(String reportId, String projectName, String repoName, String authorizationHeader) {
@@ -124,8 +127,22 @@ public class HealeniumRestService {
                 .defaultHeader(HttpHeaders.AUTHORIZATION, authorizationHeader)
                 .build()
                 .get()
-                .uri(UPDATE_LOCATOR_CODE_POSITION + "mr/" + reportId + "/" + projectName + "/" + repoName)
+                .uri(SELECTOR_DETECTION_URI + "mr/" + reportId + "/" + projectName + "/" + repoName)
                 .retrieve()
                 .bodyToMono(EliteaDto.class);
+    }
+
+    public Mono<String> runEliteaAgent(String userInputJson, String authorizationHeader, String promptId) {
+        //TODO get elitea token from db
+        return WebClient.builder()
+                .baseUrl(ELITEA_URL)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, authorizationHeader)
+                .build()
+                .post()
+                .uri(ELITEA_AGENT_RUN + promptId)
+                .bodyValue(userInputJson)
+                .retrieve()
+                .bodyToMono(String.class);
     }
 }
