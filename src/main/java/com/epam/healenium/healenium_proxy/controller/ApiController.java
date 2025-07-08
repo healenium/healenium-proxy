@@ -1,12 +1,6 @@
 package com.epam.healenium.healenium_proxy.controller;
 
-import com.epam.healenium.healenium_proxy.model.elitea.ChatHistory;
-import com.epam.healenium.healenium_proxy.model.elitea.ContentResponse;
-import com.epam.healenium.healenium_proxy.model.elitea.EliteaPRResponseDto;
-import com.epam.healenium.healenium_proxy.model.elitea.EliteaSelectorDetectionRequestDto;
-import com.epam.healenium.healenium_proxy.model.elitea.EliteaSelectorDetectionResponseDto;
-import com.epam.healenium.healenium_proxy.model.elitea.PathDetails;
-import com.epam.healenium.healenium_proxy.model.elitea.RunEliteaAgentRequest;
+import com.epam.healenium.healenium_proxy.model.elitea.*;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,7 +11,6 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
@@ -49,12 +42,8 @@ public class ApiController {
     }
 
     @GetMapping("/elitea/selector-detection/{reportId}")
-    public Mono<ResponseEntity<List<EliteaSelectorDetectionResponseDto>>> selectorDetectionByReport(
-            @RequestHeader("Authorization") String authorizationHeader,
-            @PathVariable String reportId) {
-        String projectName = "healenium";
-        String repositoryName = "healenium-example-maven";
-        return restService.selectorDetectionByReport(reportId, projectName, repositoryName, authorizationHeader)
+    public Mono<ResponseEntity<List<EliteaSelectorDetectionResponseDto>>> selectorDetectionByReport(@PathVariable String reportId) {
+        return restService.selectorDetectionByReport(reportId)
                 .flatMap(listSelectors -> {
                     try {
                         List<EliteaSelectorDetectionRequestDto> availableSelectors = listSelectors.stream()
@@ -64,22 +53,26 @@ public class ApiController {
                         RunEliteaAgentRequest request = new RunEliteaAgentRequest(Collections.emptyList(), dtoAsJson);
                         String userInputJson = objectMapper.writeValueAsString(request);
                         log.info("[ELITEA] Selector Detection Request: " + userInputJson);
-                        Mono<String> stringMono = restService.runEliteaAgent(userInputJson, authorizationHeader, "11");
-                        Mono<List<EliteaSelectorDetectionResponseDto>> eliteaSelectorDetectionResponseDtoMono = stringMono
-                                .flatMap(s -> parseChatHistoryContentList(s, EliteaSelectorDetectionResponseDto.class));
-                        Mono<List<EliteaSelectorDetectionResponseDto>> convertedList = eliteaSelectorDetectionResponseDtoMono
-                                .map(this::convert);
-                        List<EliteaSelectorDetectionResponseDto> list = listSelectors.stream()
-                                .filter(s -> s != null && CollectionUtils.isEmpty(s.getPathList()))
-                                .map(this::convert3)
-                                .toList();
-                        return Mono.zip(convertedList, Mono.just(list))
-                                .map(tuple -> {
-                                    List<EliteaSelectorDetectionResponseDto> combinedList = new ArrayList<>();
-                                    combinedList.addAll(tuple.getT1());
-                                    combinedList.addAll(tuple.getT2());
-                                    return combinedList;
-                                });
+                        Mono<IntegrationFormDto> credentialsDto = restService.getCredentials();
+                        return credentialsDto.flatMap(credentials -> {
+                                    Mono<String> stringMono = restService.runEliteaAgent(userInputJson, "11", credentials.getEliteaToken());
+                                    Mono<List<EliteaSelectorDetectionResponseDto>> eliteaSelectorDetectionResponseDtoMono = stringMono
+                                            .flatMap(s -> parseChatHistoryContentList(s, EliteaSelectorDetectionResponseDto.class));
+                                    Mono<List<EliteaSelectorDetectionResponseDto>> convertedList = eliteaSelectorDetectionResponseDtoMono
+                                            .map(this::convert);
+                                    List<EliteaSelectorDetectionResponseDto> list = listSelectors.stream()
+                                            .filter(s -> s != null && CollectionUtils.isEmpty(s.getPathList()))
+                                            .map(this::convert3)
+                                            .toList();
+                                    return Mono.zip(convertedList, Mono.just(list))
+                                            .map(tuple -> {
+                                                List<EliteaSelectorDetectionResponseDto> combinedList = new ArrayList<>();
+                                                combinedList.addAll(tuple.getT1());
+                                                combinedList.addAll(tuple.getT2());
+                                                return combinedList;
+                                            });
+                                }
+                        );
                     } catch (JsonProcessingException e) {
                         return Mono.error(new RuntimeException("Error serialisation DTO", e));
                     }
@@ -111,19 +104,19 @@ public class ApiController {
     }
 
     @GetMapping("/elitea/report/create-mr/{reportId}")
-    public Mono<ResponseEntity<ContentResponse>> createPullRequest(@RequestHeader("Authorization") String authorizationHeader,
-                                                                   @PathVariable String reportId) {
-        String projectName = "healenium";
-        String repositoryName = "healenium-example-maven";
-        return restService.createMR(reportId, projectName, repositoryName, authorizationHeader)
+    public Mono<ResponseEntity<ContentResponse>> createPullRequest(@PathVariable String reportId) {
+        return restService.createPullRequest(reportId)
                 .flatMap(eliteaDto -> {
                     try {
                         String dtoAsJson = objectMapper.writeValueAsString(eliteaDto);
                         RunEliteaAgentRequest request = new RunEliteaAgentRequest(Collections.emptyList(), dtoAsJson);
                         String userInputJson = objectMapper.writeValueAsString(request);
                         log.info("[ELITEA] Create PR Request: " + userInputJson);
-                        Mono<String> stringMono = restService.runEliteaAgent(userInputJson, authorizationHeader, "12");
-                        return stringMono.flatMap(s -> parseChatHistoryContent(s, ContentResponse.class));
+                        Mono<IntegrationFormDto> credentialsDto = restService.getCredentials();
+                        return credentialsDto.flatMap(credentials -> {
+                            Mono<String> stringMono = restService.runEliteaAgent(userInputJson, "12", credentials.getEliteaToken());
+                            return stringMono.flatMap(s -> parseChatHistoryContent(s, ContentResponse.class));
+                        });
                     } catch (JsonProcessingException e) {
                         return Mono.error(new RuntimeException("Error serialisation DTO", e));
                     }
@@ -169,9 +162,6 @@ public class ApiController {
     private List<EliteaSelectorDetectionResponseDto> convert(List<EliteaSelectorDetectionResponseDto> sourceList) {
         List<EliteaSelectorDetectionResponseDto> resultList = new ArrayList<>();
         for (EliteaSelectorDetectionResponseDto source : sourceList) {
-//            if (source.getValidPaths().size() == 1) {
-//                break;
-//            }
             EliteaSelectorDetectionResponseDto target = new EliteaSelectorDetectionResponseDto()
                     .setId(source.getId())
                     .setLocator(source.getLocator())
