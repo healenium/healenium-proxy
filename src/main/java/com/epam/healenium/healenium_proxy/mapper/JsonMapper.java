@@ -64,8 +64,9 @@ public class JsonMapper {
         return result.get(VALUE);
     }
 
+    @SuppressWarnings("unchecked")
     public Map<String, Object> getCapabilities(Map<String, Object> value) {
-        Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault(CAPABILITIES, Collections.EMPTY_MAP);
+        Map<String, Object> capabilities = (Map<String, Object>) value.getOrDefault(CAPABILITIES, Collections.emptyMap());
         return capabilities;
     }
 
@@ -74,6 +75,7 @@ public class JsonMapper {
                 .apply((String) requestBodyMap.get("value"));
     }
 
+    @SuppressWarnings("unchecked")
     public boolean isMobile(Map<String, Object> capabilities) {
         boolean isMobile = false;
         Object alwaysMatch = capabilities.get(ALWAYSMATCH);
@@ -84,11 +86,12 @@ public class JsonMapper {
         if (!isMobile) {
             Object firstMatch = capabilities.get(FIRSTMATCH);
             if (firstMatch != null) {
-                isMobile = ((List) firstMatch).stream()
-                        .flatMap(lm -> ((Map) lm).entrySet().stream())
-                        .anyMatch(c -> CapabilityType.PLATFORM_NAME.equals(((Map.Entry<?, ?>) c).getKey())
-                                && (MobilePlatform.ANDROID.equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())
-                                || MobilePlatform.IOS.equalsIgnoreCase((String) ((Map.Entry<?, ?>) c).getValue())));
+                List<Map<String, Object>> firstMatchList = (List<Map<String, Object>>) firstMatch;
+                isMobile = firstMatchList.stream()
+                        .flatMap(lm -> lm.entrySet().stream())
+                        .anyMatch(c -> CapabilityType.PLATFORM_NAME.equals(c.getKey())
+                                && (MobilePlatform.ANDROID.equalsIgnoreCase((String) c.getValue())
+                                || MobilePlatform.IOS.equalsIgnoreCase((String) c.getValue())));
             }
         }
         return isMobile;
