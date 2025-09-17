@@ -30,10 +30,10 @@ public class HealeniumRestService {
     private static final String HEALENIUM_SESSION_INIT_PATH = "/healenium/session";
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_HEALTH_CHECK_URI = "/actuator/health";
-    private static final String GET_ALL_REPORTS_URI = "/healenium/report/reports/";
-    private static final String SELECTOR_DETECTION_URI = "/healenium/elitea/selector-detection/";
-    private static final String CREATE_PULL_REQUEST_URI = "/healenium/elitea/pull-request/";
-    private static final String GET_CREDENTIALS_URI = "/healenium/elitea/credentials/";
+    private static final String GET_ALL_REPORTS_URI = "/healenium/report/data/";
+    private static final String SELECTOR_DETECTION_URI = "/healenium/settings/selector-detection/";
+    private static final String CREATE_PULL_REQUEST_URI = "/healenium/settings/pull-request/";
+    private static final String GET_CREDENTIALS_URI = "/healenium/settings/credentials/";
     private static final String ELITEA_URL = "https://nexus.elitea.ai";
     private static final String ELITEA_AGENT_RUN = "/api/v1/applications/predict/prompt_lib/743/";
 

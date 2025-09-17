@@ -12,6 +12,9 @@ proxy:
   imitate:
     container:
       url: ${IMITATE_SERVICE:http://localhost:8000}
+  ai:
+    container:
+      url: ${HEALENIUM_AI_SERVICE:http://localhost:6565}
 
 spring:
   banner:
@@ -74,6 +77,11 @@ spring:
           predicates:
             - Path=/healenium/**,/screenshots/**
 
+        - id: healenium_ai
+          uri: ${proxy.ai.container.url}
+          predicates:
+            - Path=/api/ai/**
+
         - id: fallback_route
           uri: ${proxy.selenium.url}
           predicates:
@@ -83,6 +91,7 @@ healing:
   healenabled: ${HEAL_ENABLED:true}
   recoverytries: ${RECOVERY_TRIES:1}
   scorecap: ${SCORE_CAP:.6}
+  selectortype: ${SELECTOR_TYPE:cssSelector}
 logging:
   level:
     ROOT: ${SPRING_LOG_LEVEL:INFO}

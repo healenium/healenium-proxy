@@ -1,23 +1,21 @@
 package com.epam.healenium.healenium_proxy.controller;
 
+import com.epam.healenium.healenium_proxy.config.ProxyConfig;
+import com.epam.healenium.healenium_proxy.model.SelectorTypeRequest;
 import com.epam.healenium.healenium_proxy.model.elitea.*;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Slf4j(topic = "healenium")
 @RequiredArgsConstructor
@@ -28,6 +26,9 @@ public class ApiController {
 
     private final HealeniumRestService restService;
     private final ObjectMapper objectMapper;
+
+    private final ProxyConfig proxyConfig;
+    private final Environment env;
 
     @GetMapping("/reports/{id}")
     public Mono<ResponseEntity<?>> getReports(@PathVariable String id) {
@@ -123,6 +124,34 @@ public class ApiController {
                 })
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/selector-type")
+    public ResponseEntity<Map<String, String>> getSelectorType() {
+        String selectorType = env.getProperty("healing.selectortype", "cssSelector");
+        log.info("Getting current selector type: {}", selectorType);
+        return ResponseEntity.ok(Collections.singletonMap("selectorType", selectorType));
+    }
+
+    @PutMapping("/selector-type")
+    public ResponseEntity<Map<String, String>> updateSelectorType(@RequestBody SelectorTypeRequest request) {
+        String selectorType = request.getSelectorType();
+
+        if (selectorType == null || (!selectorType.equals("cssSelector") && !selectorType.equals("xpath"))) {
+            log.warn("Invalid selector type: {}. Must be 'cssSelector' or 'xpath'", selectorType);
+            return ResponseEntity.badRequest().body(
+                    Collections.singletonMap("error", "Invalid selector type. Must be 'cssSelector' or 'xpath'")
+            );
+        }
+
+        proxyConfig.updateSelectorType(selectorType);
+        log.info("Selector type updated to: {}", selectorType);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("selectorType", selectorType);
+        response.put("message", "Selector type updated successfully");
+
+        return ResponseEntity.ok(response);
     }
 
     private <T> Mono<List<T>> parseChatHistoryContentList(String resp, Class<T> contentClass) {
