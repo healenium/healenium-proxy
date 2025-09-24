@@ -18,54 +18,56 @@ spring:
     location: /images/banner.txt
   cloud:
     gateway:
-      routes:
-        - id: selenium_session
-          uri: ${proxy.selenium.url}
-          predicates:
-            - Path=/session,/wd/hub/session
-          filters:
-            - name: InitSession
+      server:
+        webflux:
+          routes:
+            - id: selenium_session
+              uri: ${proxy.selenium.url}
+              predicates:
+                - Path=/session,/wd/hub/session
+              filters:
+                - name: InitSession
 
-        - id: selenium_element
-          uri: http://localhost:${server.port}
-          predicates:
-            - Path=/session/{session_id}/element,/wd/hub/session/{session_id}/element
-          filters:
-            - name: FindElementRequest
+            - id: selenium_element
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/session/{session_id}/element,/wd/hub/session/{session_id}/element
+              filters:
+                - name: FindElementRequest
 
-        - id: selenium_child_element
-          uri: http://localhost:${server.port}
-          predicates:
-            - Path=/session/{session_id}/element/{parent_element_id}/element,/wd/hub/session/{session_id}/element/{parent_element_id}/element
-          filters:
-            - name: FindElementRequest
+            - id: selenium_child_element
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/session/{session_id}/element/{parent_element_id}/element,/wd/hub/session/{session_id}/element/{parent_element_id}/element
+              filters:
+                - name: FindElementRequest
 
-        - id: selenium_elements
-          uri: http://localhost:${server.port}
-          predicates:
-            - Path=/session/{session_id}/elements,/wd/hub/session/{session_id}/elements
-          filters:
-            - name: FindElementsRequest
+            - id: selenium_elements
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/session/{session_id}/elements,/wd/hub/session/{session_id}/elements
+              filters:
+                - name: FindElementsRequest
 
-        - id: selenium_child_elements
-          uri: http://localhost:${server.port}
-          predicates:
-            - Path=/session/{session_id}/element/{parent_element_id}/elements,/wd/hub/session/{session_id}/element/{parent_element_id}/elements
-          filters:
-            - name: FindElementsRequest
+            - id: selenium_child_elements
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/session/{session_id}/element/{parent_element_id}/elements,/wd/hub/session/{session_id}/element/{parent_element_id}/elements
+              filters:
+                - name: FindElementsRequest
 
-        - id: selenium_execute_sync
-          uri: ${proxy.selenium.url}
-          predicates:
-            - Path=/session/{session_id}/execute/sync,/wd/hub/session/{session_id}/execute/sync
-            - Method=POST
-          filters:
-            - name: ExecuteScript
+            - id: selenium_execute_sync
+              uri: ${proxy.selenium.url}
+              predicates:
+                - Path=/session/{session_id}/execute/sync,/wd/hub/session/{session_id}/execute/sync
+                - Method=POST
+              filters:
+                - name: ExecuteScript
 
-        - id: fallback_route
-          uri: ${proxy.selenium.url}
-          predicates:
-            - Path=/**
+            - id: fallback_route
+              uri: ${proxy.selenium.url}
+              predicates:
+                - Path=/**
 
 healing:
   healenabled: ${HEAL_ENABLED:true}
@@ -83,4 +85,3 @@ logging:
     file: '%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Moscow} %clr(%5p) %clr(${PID:- }){magenta} %clr(-){faint} %clr([%11.11t]){faint} %clr(%-32.32logger{30}){cyan} %clr(:){faint} %replace(%m){''[\n\r]'',''\\n ''} %replace(%ex){''[\r\n]'', ''\\n ''}%nopex%n'
   file:
     name: ./logs/healenium-proxy.log
-
