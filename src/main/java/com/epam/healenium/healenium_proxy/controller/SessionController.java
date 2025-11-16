@@ -13,12 +13,12 @@ import java.util.Map;
 @Slf4j(topic = "healenium")
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/session/{sessionId}/healenium")
+@RequestMapping("/session")
 public class SessionController {
 
     private final SessionContextService sessionContextService;
 
-    @PostMapping("/params")
+    @PostMapping("/{sessionId}/healenium/params")
     public ResponseEntity<Void> updateSession(@PathVariable String sessionId, @RequestBody Map<String, Object> body) {
         log.info("[Params] {}", body);
         Boolean isWaitCommand = (Boolean) body.get("isWait");

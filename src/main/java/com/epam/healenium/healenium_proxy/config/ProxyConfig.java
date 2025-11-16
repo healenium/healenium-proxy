@@ -3,6 +3,7 @@ package com.epam.healenium.healenium_proxy.config;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ public class ProxyConfig {
     @Autowired
     private final Environment env;
 
+    @Getter
     private Config config;
 
     public ProxyConfig(Environment env) {
@@ -38,13 +40,15 @@ public class ProxyConfig {
     }
     
     /**
-     * Update selector type configuration
+     * Update configuration value
+     * Note: Validation should be performed by the caller before calling this method
      * 
-     * @param selectorType new selector type ("cssSelector" or "xpath")
+     * @param key configuration key
+     * @param value new value
      */
-    public void updateSelectorType(String selectorType) {
-        if (selectorType != null && (selectorType.equals("cssSelector") || selectorType.equals("xpath"))) {
-            config = config.withValue("selector-type", ConfigValueFactory.fromAnyRef(selectorType));
+    public void updateConfigValue(String key, Object value) {
+        if (value != null) {
+            config = config.withValue(key, ConfigValueFactory.fromAnyRef(value));
         }
     }
 }

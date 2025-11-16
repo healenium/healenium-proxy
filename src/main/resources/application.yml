@@ -19,6 +19,8 @@ proxy:
 spring:
   banner:
     location: /images/banner.txt
+  jmx:
+    enabled: false
   cloud:
     gateway:
       server:
@@ -74,6 +76,16 @@ spring:
               filters:
                 - name: ExecuteScript
 
+            - id: healenium_backend
+              uri: ${proxy.healenium.container.url}
+              predicates:
+                - Path=/healenium/**,/screenshots/**
+
+            - id: healenium_ai
+              uri: ${proxy.ai.container.url}
+              predicates:
+                - Path=/api/ai/**
+
             - id: fallback_route
               uri: ${proxy.selenium.url}
               predicates:
@@ -92,7 +104,18 @@ logging:
     healenium: ${HLM_LOG_LEVEL:debug}
     com.epam.healenium.appium: ${HLM_LOG_LEVEL:debug}
   pattern:
-    console: '%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Moscow} %clr(%5p) %clr(${PID:- }){magenta} %clr(-){faint} %clr([%11.11t]){faint} %clr(%-32.32logger{30}){cyan} %clr(:){faint} %replace(%m){''[\n\r]'',''\\n ''} %replace(%ex){''[\r\n]'', ''\\n ''}%nopex%n'
-    file: '%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Moscow} %clr(%5p) %clr(${PID:- }){magenta} %clr(-){faint} %clr([%11.11t]){faint} %clr(%-32.32logger{30}){cyan} %clr(:){faint} %replace(%m){''[\n\r]'',''\\n ''} %replace(%ex){''[\r\n]'', ''\\n ''}%nopex%n'
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
+    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
   file:
     name: ./logs/healenium-proxy.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: ./logs/healenium-proxy-%d{yyyy-MM-dd}.%i.log.gz
+      max-file-size: 1MB
+      max-history: 1
+      total-size-cap: 100MB
+
+# Backend service configuration for proxy to call backend logs API
+backend:
+  service:
+    url: ${BACKEND_SERVICE_URL:http://localhost:7878}
