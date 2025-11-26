@@ -12,12 +12,13 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
-public class ConfigDto {
+public class SettingsDto {
 
     private String selectorType;
     private Boolean healEnabled;
     private Integer recoveryTries;
     private Double scoreCap;
+    private String logLevel;
 }
 
 

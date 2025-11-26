@@ -35,6 +35,7 @@ public class ProxyConfig {
                 .withValue("recovery-tries", ConfigValueFactory.fromAnyRef(env.getProperty("healing.recoverytries")))
                 .withValue("score-cap", ConfigValueFactory.fromAnyRef(env.getProperty("healing.scorecap")))
                 .withValue("selector-type", ConfigValueFactory.fromAnyRef(env.getProperty("healing.selectortype", "cssSelector")))
+                .withValue("log-level", ConfigValueFactory.fromAnyRef(env.getProperty("HLM_LOG_LEVEL", "INFO")))
                 .withValue("backlight-healing", ConfigValueFactory.fromAnyRef(true))
                 .withValue("proxy", ConfigValueFactory.fromAnyRef(true));
     }

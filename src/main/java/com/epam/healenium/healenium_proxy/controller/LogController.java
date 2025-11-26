@@ -1,7 +1,7 @@
 package com.epam.healenium.healenium_proxy.controller;
 
 import com.epam.healenium.healenium_proxy.model.SessionLogResultDto;
-import com.epam.healenium.healenium_proxy.service.BackendLogsService;
+import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.LogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ public class LogController {
 
     private static final DateTimeFormatter LOG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     
-    private final BackendLogsService backendLogsService;
+    private final HealeniumRestService restService;
     private final LogService logService;
     
     /**
@@ -41,15 +41,43 @@ public class LogController {
             result.put("startTime", logResult.getStartTime() != null ? logResult.getStartTime().format(LOG_DATE_FORMAT) : null);
             result.put("endTime", logResult.getEndTime() != null ? logResult.getEndTime().format(LOG_DATE_FORMAT) : null);
 
-            return backendLogsService.getBackendLogs(logResult.getStartTime(), logResult.getEndTime(), sessionId)
-                    .map(backendLogs -> {
+            Mono<String> backendLogsMono;
+            if (logResult.getStartTime() != null && logResult.getEndTime() != null) {
+                backendLogsMono = restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime());
+            } else {
+                backendLogsMono = restService.getBackendLogsForSession(sessionId);
+            }
+            
+            return backendLogsMono
+                    .flatMap(backendLogs -> {
                         result.put("backendLogs", backendLogs);
-                        return ResponseEntity.ok(result);
+                        // Call getAILogs only with sessionId
+                        return restService.getAILogsForSession(sessionId)
+                                .map(aiLogs -> {
+                                    result.put("aiLogs", aiLogs);
+                                    return ResponseEntity.ok(result);
+                                })
+                                .onErrorResume(e -> {
+                                    log.error("Error getting AI logs for session: {}", sessionId, e);
+                                    result.put("aiLogsError", "Error retrieving AI logs: " + e.getMessage());
+                                    return Mono.just(ResponseEntity.ok(result));
+                                });
                     })
                     .onErrorResume(e -> {
                         log.error("Error getting backend logs for session: {}", sessionId, e);
                         result.put("backendLogsError", "Error retrieving backend logs: " + e.getMessage());
-                        return Mono.just(ResponseEntity.ok(result));
+                        
+                        // Still try to get AI logs even if backend logs failed
+                        return restService.getAILogsForSession(sessionId)
+                                .map(aiLogs -> {
+                                    result.put("aiLogs", aiLogs);
+                                    return ResponseEntity.ok(result);
+                                })
+                                .onErrorResume(aiError -> {
+                                    log.error("Error getting AI logs for session: {}", sessionId, aiError);
+                                    result.put("aiLogsError", "Error retrieving AI logs: " + aiError.getMessage());
+                                    return Mono.just(ResponseEntity.ok(result));
+                                });
                     });
         } catch (Exception e) {
             log.error("Error getting logs for session: {}", sessionId, e);

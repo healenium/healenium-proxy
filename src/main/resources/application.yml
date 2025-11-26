@@ -84,7 +84,7 @@ spring:
             - id: healenium_ai
               uri: ${proxy.ai.container.url}
               predicates:
-                - Path=/api/ai/**
+                - Path=/healenium-ai/**
 
             - id: fallback_route
               uri: ${proxy.selenium.url}
@@ -119,3 +119,8 @@ logging:
 backend:
   service:
     url: ${BACKEND_SERVICE_URL:http://localhost:7878}
+
+# AI service configuration for proxy to call AI logs API
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:6565}
