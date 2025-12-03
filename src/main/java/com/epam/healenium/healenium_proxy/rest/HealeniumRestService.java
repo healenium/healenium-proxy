@@ -50,7 +50,7 @@ public class HealeniumRestService {
     @Value("${proxy.selenium.url}")
     private String seleniumUrl;
     
-    @Value("${ai.service.url:http://localhost:6565}")
+    @Value("${proxy.ai.container.url}")
     private String aiServiceUrl;
 
     public void restoreSessionOnServer(URL addressOfRemoteServer, String sessionId, Map<String, Object> sessionCapabilities) {

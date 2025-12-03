@@ -114,13 +114,3 @@ logging:
       max-file-size: 1MB
       max-history: 1
       total-size-cap: 100MB
-
-# Backend service configuration for proxy to call backend logs API
-backend:
-  service:
-    url: ${BACKEND_SERVICE_URL:http://localhost:7878}
-
-# AI service configuration for proxy to call AI logs API
-ai:
-  service:
-    url: ${AI_SERVICE_URL:http://localhost:6565}
