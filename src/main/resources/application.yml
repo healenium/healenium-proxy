@@ -16,7 +16,7 @@ proxy:
     container:
       url: ${HEALENIUM_AI_SERVICE:http://localhost:6565}
   playwright:
-    proxy:
+    container:
       url: ${PLAYWRIGHT_PROXY_SERVICE:http://localhost:8095}
 
 spring:
@@ -90,7 +90,7 @@ spring:
                 - Path=/healenium-ai/**
 
             - id: playwright_proxy
-              uri: ${proxy.playwright.proxy.url}
+              uri: ${proxy.playwright.container.url}
               predicates:
                 - Path=/hlm-playwright-proxy/**
 
