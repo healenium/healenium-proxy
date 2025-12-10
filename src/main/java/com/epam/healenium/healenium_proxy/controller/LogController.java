@@ -11,6 +11,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -32,53 +34,34 @@ public class LogController {
      */
     @GetMapping("/session/{sessionId}")
     public Mono<ResponseEntity<Map<String, Object>>> getSessionLogs(@PathVariable String sessionId) {
-        Map<String, Object> result = new HashMap<>();
-        
         try {
             SessionLogResultDto logResult = logService.getLogsForSession(sessionId);
-            result.put("sessionId", sessionId);
-            result.put("proxyLogs", logResult.getLogs());
-            result.put("startTime", logResult.getStartTime() != null ? logResult.getStartTime().format(LOG_DATE_FORMAT) : null);
-            result.put("endTime", logResult.getEndTime() != null ? logResult.getEndTime().format(LOG_DATE_FORMAT) : null);
-
-            Mono<String> backendLogsMono;
-            if (logResult.getStartTime() != null && logResult.getEndTime() != null) {
-                backendLogsMono = restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime());
-            } else {
-                backendLogsMono = restService.getBackendLogsForSession(sessionId);
-            }
             
-            return backendLogsMono
-                    .flatMap(backendLogs -> {
-                        result.put("backendLogs", backendLogs);
-                        // Call getAILogs only with sessionId
-                        return restService.getAILogsForSession(sessionId)
-                                .map(aiLogs -> {
-                                    result.put("aiLogs", aiLogs);
-                                    return ResponseEntity.ok(result);
-                                })
-                                .onErrorResume(e -> {
-                                    log.error("Error getting AI logs for session: {}", sessionId, e);
-                                    result.put("aiLogsError", "Error retrieving AI logs: " + e.getMessage());
-                                    return Mono.just(ResponseEntity.ok(result));
-                                });
-                    })
-                    .onErrorResume(e -> {
-                        log.error("Error getting backend logs for session: {}", sessionId, e);
-                        result.put("backendLogsError", "Error retrieving backend logs: " + e.getMessage());
-                        
-                        // Still try to get AI logs even if backend logs failed
-                        return restService.getAILogsForSession(sessionId)
-                                .map(aiLogs -> {
-                                    result.put("aiLogs", aiLogs);
-                                    return ResponseEntity.ok(result);
-                                })
-                                .onErrorResume(aiError -> {
-                                    log.error("Error getting AI logs for session: {}", sessionId, aiError);
-                                    result.put("aiLogsError", "Error retrieving AI logs: " + aiError.getMessage());
-                                    return Mono.just(ResponseEntity.ok(result));
-                                });
-                    });
+            // Define log sources 
+            Map<String, Mono<String>> logSources = new LinkedHashMap<>();
+            logSources.put("backendLogs", (logResult.getStartTime() != null && logResult.getEndTime() != null)
+                    ? restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime())
+                    : restService.getBackendLogsForSession(sessionId));
+            logSources.put("aiLogs", restService.getAILogsForSession(sessionId));
+            logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
+
+            List<String> keys = List.copyOf(logSources.keySet());
+            List<Mono<String>> logSourcesMono = List.copyOf(logSources.values());
+            
+            // Fetch all logs in parallel using Mono.zip with Iterable
+            return Mono.zip(logSourcesMono, logs -> {
+                Map<String, Object> result = new HashMap<>();
+                result.put("sessionId", sessionId);
+                result.put("proxyLogs", logResult.getLogs());
+                result.put("startTime", logResult.getStartTime() != null ? logResult.getStartTime().format(LOG_DATE_FORMAT) : null);
+                result.put("endTime", logResult.getEndTime() != null ? logResult.getEndTime().format(LOG_DATE_FORMAT) : null);
+                
+                // Map results back to their keys
+                for (int i = 0; i < keys.size(); i++) {
+                    result.put(keys.get(i), logs[i]);
+                }
+                return ResponseEntity.ok(result);
+            });
         } catch (Exception e) {
             log.error("Error getting logs for session: {}", sessionId, e);
             return Mono.just(ResponseEntity.internalServerError().body(Map.of("error", e.getMessage())));

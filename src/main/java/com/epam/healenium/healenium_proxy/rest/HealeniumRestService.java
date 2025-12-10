@@ -41,6 +41,7 @@ public class HealeniumRestService {
     private static final String BACKEND_LOGS_TIME_RANGE_URI = "/healenium/logs/time-range";
     private static final String BACKEND_LOGS_SESSION_URI = "/healenium/logs/session/{sessionId}";
     private static final String AI_LOGS_SESSION_URI = "/healenium-ai/logs/session/{sessionId}";
+    private static final String PLAYWRIGHT_LOGS_SESSION_URI = "/hlm-playwright-proxy/logs/session/{sessionId}";
     private static final String ELITEA_URL = "https://nexus.elitea.ai";
     private static final String ELITEA_AGENT_RUN = "/api/v1/applications/predict/prompt_lib/743/";
 
@@ -52,6 +53,9 @@ public class HealeniumRestService {
     
     @Value("${proxy.ai.container.url}")
     private String aiServiceUrl;
+
+    @Value("${proxy.playwright.container.url}")
+    private String playwrightServiceUrl;
 
     public void restoreSessionOnServer(URL addressOfRemoteServer, String sessionId, Map<String, Object> sessionCapabilities) {
         SessionDto sessionDto = new SessionDto(addressOfRemoteServer, sessionId, sessionCapabilities);
@@ -310,6 +314,27 @@ public class HealeniumRestService {
                 .onErrorResume(e -> {
                     log.error("Error retrieving AI logs: {}", e.getMessage(), e);
                     return Mono.just("Error retrieving AI logs: " + e.getMessage());
+                });
+    }
+
+    /**
+     * Get logs from the hlm-playwright-proxy service for a specific session ID
+     * @param sessionId Session ID to use for log retrieval
+     * @return Mono<String> containing the ai logs
+     */
+    public Mono<String> getPlaywrightLogsForSession(String sessionId) {
+        return WebClient.builder()
+                .baseUrl(playwrightServiceUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build()
+                .get()
+                .uri(PLAYWRIGHT_LOGS_SESSION_URI, sessionId)
+                .header("X-Session-Id", sessionId)
+                .retrieve()
+                .bodyToMono(String.class)
+                .onErrorResume(e -> {
+                    log.error("Error retrieving Playwright Proxy logs: {}", e.getMessage(), e);
+                    return Mono.just("Error retrieving Playwright Proxy logs: " + e.getMessage());
                 });
     }
 }
