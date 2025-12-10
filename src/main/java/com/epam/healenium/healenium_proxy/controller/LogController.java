@@ -37,21 +37,19 @@ public class LogController {
         try {
             SessionLogResultDto logResult = logService.getLogsForSession(sessionId);
             
-            // Define log sources - easily extensible for future additions
+            // Define log sources 
             Map<String, Mono<String>> logSources = new LinkedHashMap<>();
             logSources.put("backendLogs", (logResult.getStartTime() != null && logResult.getEndTime() != null)
                     ? restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime())
                     : restService.getBackendLogsForSession(sessionId));
             logSources.put("aiLogs", restService.getAILogsForSession(sessionId));
             logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
-            // Add more log sources here as needed:
-            // logSources.put("newServiceLogs", restService.getNewServiceLogs(sessionId));
-            
+
             List<String> keys = List.copyOf(logSources.keySet());
-            List<Mono<String>> monos = List.copyOf(logSources.values());
+            List<Mono<String>> logSourcesMono = List.copyOf(logSources.values());
             
             // Fetch all logs in parallel using Mono.zip with Iterable
-            return Mono.zip(monos, results -> {
+            return Mono.zip(logSourcesMono, logs -> {
                 Map<String, Object> result = new HashMap<>();
                 result.put("sessionId", sessionId);
                 result.put("proxyLogs", logResult.getLogs());
@@ -60,7 +58,7 @@ public class LogController {
                 
                 // Map results back to their keys
                 for (int i = 0; i < keys.size(); i++) {
-                    result.put(keys.get(i), results[i]);
+                    result.put(keys.get(i), logs[i]);
                 }
                 return ResponseEntity.ok(result);
             });
