@@ -29,6 +29,9 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class HealeniumRestService {
 
+    // Max buffer size for log retrieval (16MB) - prevents DataBufferLimitException for large logs
+    private static final int MAX_LOG_BUFFER_SIZE = 16 * 1024 * 1024;
+    
     private static final String HEALENIUM_SESSION_INIT_PATH = "/healenium/session";
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_HEALTH_CHECK_URI = "/actuator/health";
@@ -260,6 +263,7 @@ public class HealeniumRestService {
         return WebClient.builder()
                 .baseUrl(healeniumContainerUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_LOG_BUFFER_SIZE))
                 .build()
                 .get()
                 .uri(uriBuilder -> uriBuilder
@@ -284,6 +288,7 @@ public class HealeniumRestService {
         return WebClient.builder()
                 .baseUrl(healeniumContainerUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_LOG_BUFFER_SIZE))
                 .build()
                 .get()
                 .uri(BACKEND_LOGS_SESSION_URI, sessionId)
@@ -305,6 +310,7 @@ public class HealeniumRestService {
         return WebClient.builder()
                 .baseUrl(aiServiceUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_LOG_BUFFER_SIZE))
                 .build()
                 .get()
                 .uri(AI_LOGS_SESSION_URI, sessionId)
@@ -326,6 +332,7 @@ public class HealeniumRestService {
         return WebClient.builder()
                 .baseUrl(playwrightServiceUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_LOG_BUFFER_SIZE))
                 .build()
                 .get()
                 .uri(PLAYWRIGHT_LOGS_SESSION_URI, sessionId)

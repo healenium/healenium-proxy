@@ -9,11 +9,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @CrossOrigin(origins = {"http://localhost:5173"})
@@ -37,7 +40,7 @@ public class LogController {
         try {
             SessionLogResultDto logResult = logService.getLogsForSession(sessionId);
             
-            // Define log sources 
+            // Define log sources
             Map<String, Mono<String>> logSources = new LinkedHashMap<>();
             logSources.put("backendLogs", (logResult.getStartTime() != null && logResult.getEndTime() != null)
                     ? restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime())
@@ -53,8 +56,11 @@ public class LogController {
                 Map<String, Object> result = new HashMap<>();
                 result.put("sessionId", sessionId);
                 result.put("proxyLogs", logResult.getLogs());
-                result.put("startTime", logResult.getStartTime() != null ? logResult.getStartTime().format(LOG_DATE_FORMAT) : null);
-                result.put("endTime", logResult.getEndTime() != null ? logResult.getEndTime().format(LOG_DATE_FORMAT) : null);
+                
+                // Use proxy log timestamps, or extract from playwright logs if null
+                String[] timestamps = resolveTimestamps(logResult, (String) logs[2]);
+                result.put("startTime", timestamps[0]);
+                result.put("endTime", timestamps[1]);
                 
                 // Map results back to their keys
                 for (int i = 0; i < keys.size(); i++) {
@@ -66,5 +72,52 @@ public class LogController {
             log.error("Error getting logs for session: {}", sessionId, e);
             return Mono.just(ResponseEntity.internalServerError().body(Map.of("error", e.getMessage())));
         }
+    }
+    
+    private String[] resolveTimestamps(SessionLogResultDto logResult, String playwrightLogs) {
+        if (logResult.getStartTime() != null && logResult.getEndTime() != null) {
+            return new String[]{
+                    logResult.getStartTime().format(LOG_DATE_FORMAT),
+                    logResult.getEndTime().format(LOG_DATE_FORMAT)
+            };
+        }
+        LocalDateTime[] times = extractTimestampsFromLogs(playwrightLogs);
+        return new String[]{
+                times[0] != null ? times[0].format(LOG_DATE_FORMAT) : null,
+                times[1] != null ? times[1].format(LOG_DATE_FORMAT) : null
+        };
+    }
+    
+    private LocalDateTime[] extractTimestampsFromLogs(String logContent) {
+        if (logContent == null || logContent.isEmpty()) {
+            return new LocalDateTime[]{null, null};
+        }
+        
+        Pattern timestampPattern = Pattern.compile("(\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3})");
+        String[] lines = logContent.split("\n");
+        LocalDateTime startTime = null;
+        LocalDateTime endTime = null;
+        
+        for (String line : lines) {
+            Matcher matcher = timestampPattern.matcher(line);
+            if (matcher.find()) {
+                try {
+                    startTime = LocalDateTime.parse(matcher.group(1), LOG_DATE_FORMAT);
+                    break;
+                } catch (Exception ignored) {}
+            }
+        }
+        
+        for (int i = lines.length - 1; i >= 0; i--) {
+            Matcher matcher = timestampPattern.matcher(lines[i]);
+            if (matcher.find()) {
+                try {
+                    endTime = LocalDateTime.parse(matcher.group(1), LOG_DATE_FORMAT);
+                    break;
+                } catch (Exception ignored) {}
+            }
+        }
+        
+        return new LocalDateTime[]{startTime, endTime};
     }
 }
