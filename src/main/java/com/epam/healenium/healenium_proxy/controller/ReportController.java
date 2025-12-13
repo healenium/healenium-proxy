@@ -23,7 +23,7 @@ public class ReportController {
                     if (report == null) {
                         return ResponseEntity.notFound().build();
                     }
-                    report.getData().forEach(r -> r.setScreenShotPath("http://localhost:8085" + r.getScreenShotPath()));
+                    report.getData().forEach(r -> r.setScreenShotPath(r.getScreenShotPath()));
                     return ResponseEntity.ok(report);
                 });
     }
