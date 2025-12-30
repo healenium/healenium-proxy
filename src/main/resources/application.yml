@@ -89,6 +89,14 @@ spring:
               predicates:
                 - Path=/healenium-ai/**
 
+            - id: playwright_proxy_actuator
+              uri: ${proxy.playwright.container.url}
+              predicates:
+                - Path=/hlm-playwright-proxy/actuator/**
+              filters:
+                - StripPrefix=1
+                - AddRequestHeader=X-Forwarded-Prefix, /hlm-playwright-proxy
+
             - id: playwright_proxy
               uri: ${proxy.playwright.container.url}
               predicates:
