@@ -88,6 +88,9 @@ spring:
               uri: ${proxy.ai.container.url}
               predicates:
                 - Path=/healenium-ai/**
+              metadata:
+                response-timeout: 600000
+                connect-timeout: 10000
 
             - id: playwright_proxy_actuator
               uri: ${proxy.playwright.container.url}
