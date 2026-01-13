@@ -1,0 +1,20 @@
+FROM eclipse-temurin:23
+
+LABEL maintainer="healenium"
+
+ENV WORKDIR=/app
+ENV JAR=hlm-proxy.jar
+ENV EXECUTABLE=run.sh
+
+WORKDIR ${WORKDIR}
+
+COPY /target/hlm-proxy-*.jar ${WORKDIR}/${JAR}
+COPY run.sh ${WORKDIR}/${EXECUTABLE}
+
+RUN chmod +x ${WORKDIR}/${EXECUTABLE}
+
+EXPOSE 8085
+EXPOSE 5005
+
+CMD ${WORKDIR}/${EXECUTABLE}
+
