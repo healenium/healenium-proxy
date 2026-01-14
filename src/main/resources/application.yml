@@ -2,6 +2,9 @@ server:
   port: ${SPRING_SERVER_PORT:8085}
 
 proxy:
+  test:
+    # selenium, playwright
+    platform: ${TEST_PLATFORM:selenium}
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
   healenium:

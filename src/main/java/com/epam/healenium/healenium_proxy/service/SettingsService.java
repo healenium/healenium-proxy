@@ -45,25 +45,30 @@ public class SettingsService {
                 .setSelectorType(Objects.requireNonNullElse(config.getString("selector-type"), "cssSelector"))
                 .setLogLevel(getCurrentLogLevel());
         
-        // Fetch playwright-proxy settings reactively
-        return restService.getPlaywrightSettings()
-                .timeout(java.time.Duration.ofSeconds(2))
-                .onErrorResume(e -> {
-                    log.warn("Could not fetch playwright-proxy settings: {}", e.getMessage());
-                    return Mono.just(new HashMap<>());
-                })
-                .map(playwrightSettings -> {
-                    if (!playwrightSettings.containsKey(ERROR)) {
-                        settings.setNodePathShortcut(getBooleanFromMap(playwrightSettings, "NODE_PATH_SHORTCUT"))
-                                .setHealingScreenshot(getBooleanFromMap(playwrightSettings, "HEALING_SCREENSHOT"))
-                                .setHealingHighlight(getBooleanFromMap(playwrightSettings, "HEALING_HIGHLIGHT"));
-                        
-                        // Note: healEnabled, scoreCap, and recoveryTries are shared settings displayed from Selenium proxy config
-                        // Playwright proxy has its own values but we show the Selenium proxy values as the primary settings
-                    }
-                    return settings;
-                })
-                .defaultIfEmpty(settings);
+        // Only fetch playwright-proxy settings if test platform is PLAYWRIGHT
+        if (isPlaywrightPlatform()) {
+            return restService.getPlaywrightSettings()
+                    .timeout(java.time.Duration.ofSeconds(5))
+                    .onErrorResume(e -> {
+                        log.debug("Could not fetch playwright-proxy settings: {}", e.getMessage());
+                        // Return empty Mono to skip map and use defaultIfEmpty with already-populated settings
+                        return Mono.empty();
+                    })
+                    .map(playwrightSettings -> {
+                        if (!playwrightSettings.containsKey(ERROR)) {
+                            // add Playwright-proxy setting to the common
+                            settings.setNodePathShortcut(getBooleanFromMap(playwrightSettings, "NODE_PATH_SHORTCUT"))
+                                    .setHealingScreenshot(getBooleanFromMap(playwrightSettings, "HEALING_SCREENSHOT"))
+                                    .setHealingHighlight(getBooleanFromMap(playwrightSettings, "HEALING_HIGHLIGHT"));
+                        }
+                        return settings;
+                    })
+                    // Playwright-specific fields will be null and excluded from JSON response due to @JsonInclude(NON_NULL)
+                    .defaultIfEmpty(settings);
+        } else {
+            // Playwright-specific fields will be null and excluded from JSON response due to @JsonInclude(NON_NULL)
+            return Mono.just(settings);
+        }
     }
     
     /**
@@ -134,8 +139,9 @@ public class SettingsService {
             }
         })
         .flatMap(response -> {
-            // Handle playwright-proxy specific settings reactively
-            if ("NODE_PATH_SHORTCUT".equals(key) || "HEALING_SCREENSHOT".equals(key) || "HEALING_HIGHLIGHT".equals(key)) {
+            // Handle playwright-proxy specific settings reactively (only if platform is PLAYWRIGHT)
+            if (isPlaywrightPlatform() && 
+                ("NODE_PATH_SHORTCUT".equals(key) || "HEALING_SCREENSHOT".equals(key) || "HEALING_HIGHLIGHT".equals(key))) {
                 return handlePlaywrightSetting(key, value);
             }
             return Mono.just(response);
@@ -176,8 +182,10 @@ public class SettingsService {
     private void handleHealEnabled(Boolean value, Map<String, Object> response, Map<String, String> errors) {
         proxyConfig.updateConfigValue("heal-enabled", value);
         response.put("healEnabled", value);
-        // Also update Playwright proxy asynchronously
-        updatePlaywrightProxySetting("HEAL_ENABLED", value.toString());
+        // Also update Playwright proxy asynchronously if platform is PLAYWRIGHT
+        if (isPlaywrightPlatform()) {
+            updatePlaywrightProxySetting("HEAL_ENABLED", value.toString());
+        }
     }
     
     /**
@@ -188,7 +196,10 @@ public class SettingsService {
         if (validationError == null) {
             proxyConfig.updateConfigValue("recovery-tries", value);
             response.put("recoveryTries", value);
-            updatePlaywrightProxySetting("RECOVERY_TRIES", value.toString());
+            // Also update Playwright proxy asynchronously if platform is PLAYWRIGHT
+            if (isPlaywrightPlatform()) {
+                updatePlaywrightProxySetting("RECOVERY_TRIES", value.toString());
+            }
         } else {
             errors.put("recoveryTries", validationError);
         }
@@ -202,7 +213,10 @@ public class SettingsService {
         if (validationError == null) {
             proxyConfig.updateConfigValue("score-cap", value);
             response.put("scoreCap", value);
-            updatePlaywrightProxySetting("SCORE_CAP", value.toString());
+            // Also update Playwright proxy asynchronously if platform is PLAYWRIGHT
+            if (isPlaywrightPlatform()) {
+                updatePlaywrightProxySetting("SCORE_CAP", value.toString());
+            }
         } else {
             errors.put("scoreCap", validationError);
         }
@@ -414,7 +428,9 @@ public class SettingsService {
      * Update the log level in the Playwright proxy service
      */
     private void updatePlaywrightProxyLogLevel(String logLevel) {
-        updatePlaywrightProxySetting("LOG_LEVEL", logLevel);
+        if (isPlaywrightPlatform()) {
+            updatePlaywrightProxySetting("LOG_LEVEL", logLevel);
+        }
     }
     
     /**
@@ -452,6 +468,22 @@ public class SettingsService {
      */
     public boolean isValidLogLevel(String logLevel) {
         return logLevel != null && VALID_LOG_LEVELS.contains(logLevel.toUpperCase());
+    }
+
+    /**
+     * Check if the test platform is PLAYWRIGHT
+     * 
+     * @return true if test platform is PLAYWRIGHT, false otherwise
+     */
+    private boolean isPlaywrightPlatform() {
+        try {
+            Config config = proxyConfig.getConfig();
+            String testPlatform = config.getString("test-platform");
+            return "PLAYWRIGHT".equalsIgnoreCase(testPlatform);
+        } catch (Exception e) {
+            log.debug("Could not determine test platform, assuming SELENIUM: {}", e.getMessage());
+            return false;
+        }
     }
 }
 
