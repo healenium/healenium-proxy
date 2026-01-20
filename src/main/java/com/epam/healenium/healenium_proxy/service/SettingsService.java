@@ -11,10 +11,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Service for managing Healenium proxy configuration
@@ -25,7 +29,7 @@ import java.util.*;
 public class SettingsService {
 
     private static final List<String> VALID_LOG_LEVELS = Arrays.asList("ERROR", "WARN", "INFO", "DEBUG", "TRACE");
-    private static final String HEALENIUM_LOGGER = "com.epam.healenium";
+    private static final String HEALENIUM_LOGGER = "healenium"; // Must match @Slf4j(topic = "healenium")
     public static final String ERROR = "error";
     public static final String ERRORS = "errors";
     public static final String SUCCESS = "success";
@@ -179,9 +183,13 @@ public class SettingsService {
      * Handle selector type setting update
      */
     private void handleSelectorType(String value, Map<String, Object> response, Map<String, String> errors) {
-        validateAndUpdateSettingValue("selector-type", value, "selectorType", response, errors, this::validateSelectorType);
-        if (isPlaywrightPlatform() && errors.isEmpty()) {
+        String validationError = validateSelectorType(value);
+        if (validationError == null) {
+            proxyConfig.updateConfigValue("selector-type", value);
+            response.put("selectorType", value);
             updatePlaywrightProxySetting("SELECTOR_TYPE", value);
+        } else {
+            errors.put("selectorType", validationError);
         }
     }
     
@@ -226,7 +234,18 @@ public class SettingsService {
      * Handle log level setting update
      */
     private void handleLogLevel(String value, Map<String, Object> response, Map<String, String> errors) {
-        validateAndUpdateSettingValue("log-level", value, "logLevel", response, errors, this::validateLogLevel);
+        String validationError = validateLogLevel(value);
+        if (validationError == null) {
+            proxyConfig.updateConfigValue("log-level", value);
+            response.put("logLevel", value);
+
+            setLogLevel(value);
+            updateBackendLogLevel(value);
+            updateAiLogLevel(value);
+            updatePlaywrightProxySetting("LOG_LEVEL", value);
+        } else {
+            errors.put("logLevel", validationError);
+        }
     }
     
     /**
@@ -291,10 +310,6 @@ public class SettingsService {
      * @param logLevel The log level to set
      */
     public void setLogLevel(String logLevel) {
-        if (!isValidLogLevel(logLevel)) {
-            log.error("Invalid log level: {}", logLevel);
-            return;
-        }
         try {
             LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
             Level level = Level.toLevel(logLevel);
@@ -315,18 +330,6 @@ public class SettingsService {
      */
     public boolean hasErrors(Map<String, Object> result) {
         return result.containsKey(ERRORS);
-    }
-
-    private <T> void validateAndUpdateSettingValue(String configKey, T value, String responseKey,
-                                                   Map<String, Object> response, Map<String, String> errors,
-                                                   java.util.function.Function<T, String> validator) {
-        String errorMessage = validator.apply(value);
-        if (errorMessage == null) {
-            proxyConfig.updateConfigValue(configKey, value);
-            response.put(responseKey, value);
-        } else {
-            errors.put(responseKey, errorMessage);
-        }
     }
 
     private String validateSelectorType(String selectorType) {
@@ -351,28 +354,10 @@ public class SettingsService {
     }
     
     private String validateLogLevel(String logLevel) {
-        if (isValidLogLevel(logLevel)) {
-            updateLogLevel(logLevel.toUpperCase());
+        if (logLevel != null && VALID_LOG_LEVELS.contains(logLevel.toUpperCase())) {
             return null;
         }
         return "Log level must be one of: ERROR, WARN, INFO, DEBUG, TRACE";
-    }
-    
-    /**
-     * Update the log level for all components
-     * 
-     * @param newLogLevel New log level to set
-     */
-    private void updateLogLevel(String newLogLevel) {
-        try {
-            setLogLevel(newLogLevel);
-
-            updateBackendLogLevel(newLogLevel);
-            updateAiLogLevel(newLogLevel);
-            updatePlaywrightProxyLogLevel(newLogLevel);
-        } catch (Exception e) {
-            log.error("Error updating log level", e);
-        }
     }
     
     /**
@@ -406,13 +391,6 @@ public class SettingsService {
     }
     
     /**
-     * Update the log level in the Playwright proxy service
-     */
-    private void updatePlaywrightProxyLogLevel(String logLevel) {
-        updatePlaywrightProxySetting("LOG_LEVEL", logLevel);
-    }
-    
-    /**
      * Update a setting in the Playwright proxy service asynchronously (only if platform is PLAYWRIGHT)
      */
     private void updatePlaywrightProxySetting(String key, String value) {
@@ -440,16 +418,6 @@ public class SettingsService {
         ch.qos.logback.classic.Logger logger = loggerContext.getLogger(HEALENIUM_LOGGER);
         Level level = logger.getLevel();
         return level != null ? level.toString() : "INFO";
-    }
-
-    /**
-     * Check if the provided log level is valid
-     *
-     * @param logLevel Log level to check
-     * @return true if valid, false otherwise
-     */
-    public boolean isValidLogLevel(String logLevel) {
-        return logLevel != null && VALID_LOG_LEVELS.contains(logLevel.toUpperCase());
     }
 
     /**

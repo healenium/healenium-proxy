@@ -1,6 +1,10 @@
 package com.epam.healenium.healenium_proxy.rest;
 
-import com.epam.healenium.healenium_proxy.model.*;
+import com.epam.healenium.healenium_proxy.model.BackendHealthCheckDto;
+import com.epam.healenium.healenium_proxy.model.ReportContentDto;
+import com.epam.healenium.healenium_proxy.model.ReportDto;
+import com.epam.healenium.healenium_proxy.model.SeleniumHealthCheckDto;
+import com.epam.healenium.healenium_proxy.model.SessionDto;
 import com.epam.healenium.healenium_proxy.model.elitea.EliteaDto;
 import com.epam.healenium.healenium_proxy.model.elitea.EliteaSelectorDetectionRequestDto;
 import com.epam.healenium.healenium_proxy.model.elitea.IntegrationFormDto;
