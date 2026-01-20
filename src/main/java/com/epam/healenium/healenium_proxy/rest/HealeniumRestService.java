@@ -1,6 +1,10 @@
 package com.epam.healenium.healenium_proxy.rest;
 
-import com.epam.healenium.healenium_proxy.model.*;
+import com.epam.healenium.healenium_proxy.model.BackendHealthCheckDto;
+import com.epam.healenium.healenium_proxy.model.ReportContentDto;
+import com.epam.healenium.healenium_proxy.model.ReportDto;
+import com.epam.healenium.healenium_proxy.model.SeleniumHealthCheckDto;
+import com.epam.healenium.healenium_proxy.model.SessionDto;
 import com.epam.healenium.healenium_proxy.model.elitea.EliteaDto;
 import com.epam.healenium.healenium_proxy.model.elitea.EliteaSelectorDetectionRequestDto;
 import com.epam.healenium.healenium_proxy.model.elitea.IntegrationFormDto;
@@ -45,6 +49,8 @@ public class HealeniumRestService {
     private static final String BACKEND_LOGS_SESSION_URI = "/healenium/logs/session/{sessionId}";
     private static final String AI_LOGS_SESSION_URI = "/healenium-ai/logs/session/{sessionId}";
     private static final String PLAYWRIGHT_LOGS_SESSION_URI = "/hlm-playwright-proxy/logs/session/{sessionId}";
+    private static final String PLAYWRIGHT_SETTINGS_GET_URI = "/hlm-playwright-proxy/settings";
+    private static final String PLAYWRIGHT_SETTINGS_UPDATE_URI = "/hlm-playwright-proxy/settings/update";
     private static final String ELITEA_URL = "https://nexus.elitea.ai";
     private static final String ELITEA_AGENT_RUN = "/api/v1/applications/predict/prompt_lib/743/";
 
@@ -342,6 +348,58 @@ public class HealeniumRestService {
                 .onErrorResume(e -> {
                     log.error("Error retrieving Playwright Proxy logs: {}", e.getMessage(), e);
                     return Mono.just("Error retrieving Playwright Proxy logs: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Get all settings from the playwright-proxy service
+     * @return Mono<Map<String, Object>> containing all playwright-proxy settings
+     */
+    public Mono<Map<String, Object>> getPlaywrightSettings() {
+        return WebClient.builder()
+                .baseUrl(playwrightServiceUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build()
+                .get()
+                .uri(PLAYWRIGHT_SETTINGS_GET_URI)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .onErrorResume(e -> {
+                    log.error("Error retrieving playwright-proxy settings: {}", e.getMessage(), e);
+                    return Mono.just(Map.of(
+                        "status", "error", 
+                        "message", "Error retrieving playwright-proxy settings: " + e.getMessage()
+                    ));
+                });
+    }
+    
+    /**
+     * Update a setting in the playwright-proxy service
+     * @param key The setting key to update
+     * @param value The new value for the setting
+     * @return Mono<Map<String, Object>> containing the response from playwright-proxy
+     */
+    public Mono<Map<String, Object>> updatePlaywrightSetting(String key, String value) {
+        Map<String, String> requestBody = Map.of(
+            "key", key,
+            "value", value
+        );
+        
+        return WebClient.builder()
+                .baseUrl(playwrightServiceUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build()
+                .post()
+                .uri(PLAYWRIGHT_SETTINGS_UPDATE_URI)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .onErrorResume(e -> {
+                    log.error("Error updating playwright-proxy setting: {}", e.getMessage(), e);
+                    return Mono.just(Map.of(
+                        "status", "error", 
+                        "message", "Error updating playwright-proxy setting: " + e.getMessage()
+                    ));
                 });
     }
 }

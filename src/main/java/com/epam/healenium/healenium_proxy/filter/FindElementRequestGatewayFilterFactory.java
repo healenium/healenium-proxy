@@ -1,7 +1,6 @@
 package com.epam.healenium.healenium_proxy.filter;
 
 import com.epam.healenium.handlers.SelfHealingHandler;
-
 import com.epam.healenium.healenium_proxy.converter.ProxyResponseConverter;
 import com.epam.healenium.healenium_proxy.model.ProxySessionContext;
 import com.epam.healenium.healenium_proxy.service.ProxyFilterService;

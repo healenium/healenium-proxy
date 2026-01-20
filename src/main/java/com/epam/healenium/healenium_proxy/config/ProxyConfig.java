@@ -37,7 +37,8 @@ public class ProxyConfig {
                 .withValue("selector-type", ConfigValueFactory.fromAnyRef(env.getProperty("healing.selectortype", "cssSelector")))
                 .withValue("log-level", ConfigValueFactory.fromAnyRef(env.getProperty("HLM_LOG_LEVEL", "INFO")))
                 .withValue("backlight-healing", ConfigValueFactory.fromAnyRef(true))
-                .withValue("proxy", ConfigValueFactory.fromAnyRef(true));
+                .withValue("proxy", ConfigValueFactory.fromAnyRef(true))
+                .withValue("test-platform", ConfigValueFactory.fromAnyRef(env.getProperty("TEST_PLATFORM", "selenium")));
     }
     
     /**
