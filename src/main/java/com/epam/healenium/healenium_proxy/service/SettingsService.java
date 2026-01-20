@@ -8,8 +8,10 @@ import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.typesafe.config.Config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
@@ -26,6 +28,8 @@ public class SettingsService {
     private static final String HEALENIUM_LOGGER = "com.epam.healenium";
     public static final String ERROR = "error";
     public static final String ERRORS = "errors";
+    public static final String SUCCESS = "success";
+    public static final String MESSAGE = "message";
 
     private final ProxyConfig proxyConfig;
     private final HealeniumRestService restService;
@@ -45,32 +49,36 @@ public class SettingsService {
                 .setSelectorType(Objects.requireNonNullElse(config.getString("selector-type"), "cssSelector"))
                 .setLogLevel(getCurrentLogLevel());
         
-        // Only fetch playwright-proxy settings if test platform is PLAYWRIGHT
+        // Only add playwright-proxy settings if test platform is PLAYWRIGHT
         if (isPlaywrightPlatform()) {
-            return restService.getPlaywrightSettings()
-                    .timeout(java.time.Duration.ofSeconds(5))
-                    .onErrorResume(e -> {
-                        log.debug("Could not fetch playwright-proxy settings: {}", e.getMessage());
-                        // Return empty Mono to skip map and use defaultIfEmpty with already-populated settings
-                        return Mono.empty();
-                    })
-                    .map(playwrightSettings -> {
-                        if (!playwrightSettings.containsKey(ERROR)) {
-                            // add Playwright-proxy setting to the common
-                            settings.setNodePathShortcut(getBooleanFromMap(playwrightSettings, "NODE_PATH_SHORTCUT"))
-                                    .setHealingScreenshot(getBooleanFromMap(playwrightSettings, "HEALING_SCREENSHOT"))
-                                    .setHealingHighlight(getBooleanFromMap(playwrightSettings, "HEALING_HIGHLIGHT"));
-                        }
-                        return settings;
-                    })
-                    // Playwright-specific fields will be null and excluded from JSON response due to @JsonInclude(NON_NULL)
-                    .defaultIfEmpty(settings);
+            return addPlaywrightProxySettings(settings);
         } else {
             // Playwright-specific fields will be null and excluded from JSON response due to @JsonInclude(NON_NULL)
             return Mono.just(settings);
         }
     }
-    
+
+    private @NotNull Mono<SettingsDto> addPlaywrightProxySettings(SettingsDto settings) {
+        return restService.getPlaywrightSettings()
+                .timeout(java.time.Duration.ofSeconds(5))
+                .onErrorResume(e -> {
+                    log.debug("Could not fetch playwright-proxy settings: {}", e.getMessage());
+                    // Return empty Mono to skip map and use defaultIfEmpty with already-populated settings
+                    return Mono.empty();
+                })
+                .map(playwrightSettings -> {
+                    if (!playwrightSettings.containsKey(ERROR)) {
+                        // add Playwright-proxy setting to the common
+                        settings.setNodePathShortcut(getBooleanFromMap(playwrightSettings, "NODE_PATH_SHORTCUT"))
+                                .setHealingScreenshot(getBooleanFromMap(playwrightSettings, "HEALING_SCREENSHOT"))
+                                .setHealingHighlight(getBooleanFromMap(playwrightSettings, "HEALING_HIGHLIGHT"));
+                    }
+                    return settings;
+                })
+                // Playwright-specific fields will be null and excluded from JSON response due to @JsonInclude(NON_NULL)
+                .defaultIfEmpty(settings);
+    }
+
     /**
      * Safely extract boolean value from map with null-safe handling
      */
@@ -114,11 +122,17 @@ public class SettingsService {
                         handleLogLevel(value.toUpperCase(), response, errors);
                         return buildResponse(key, value, response, errors);
                         
-                    case "KEY_SELECTOR_URL":
-                    case "COLLECT_METRICS":
-                    case "FIND_ELEMENTS_AUTO_HEALING":
-                        response.put("message", "Setting " + key + " is managed by backend service");
-                        response.put("success", true);
+                    case "KEY_SELECTOR_URL",
+                    "COLLECT_METRICS",
+                    "FIND_ELEMENTS_AUTO_HEALING":
+                        response.put(MESSAGE, "Setting " + key + " is managed by backend service");
+                        response.put(SUCCESS, true);
+                        return buildResponse(key, value, response, errors);
+                    
+                    case "NODE_PATH_SHORTCUT",
+                    "HEALING_SCREENSHOT",
+                    "HEALING_HIGHLIGHT":
+                        handlePlaywrightOnlySetting(key, value, response, errors);
                         return buildResponse(key, value, response, errors);
                         
                     default:
@@ -128,23 +142,15 @@ public class SettingsService {
             } catch (NumberFormatException e) {
                 errors.put("value", "Invalid value format for " + key);
                 response.put(ERRORS, errors);
-                response.put("success", false);
+                response.put(SUCCESS, false);
                 return response;
             } catch (Exception e) {
-                log.error("Error updating setting: " + key, e);
+                log.error("Error updating setting: {}", key, e);
                 errors.put(ERROR, "Internal error: " + e.getMessage());
                 response.put(ERRORS, errors);
-                response.put("success", false);
+                response.put(SUCCESS, false);
                 return response;
             }
-        })
-        .flatMap(response -> {
-            // Handle playwright-proxy specific settings reactively (only if platform is PLAYWRIGHT)
-            if (isPlaywrightPlatform() && 
-                ("NODE_PATH_SHORTCUT".equals(key) || "HEALING_SCREENSHOT".equals(key) || "HEALING_HIGHLIGHT".equals(key))) {
-                return handlePlaywrightSetting(key, value);
-            }
-            return Mono.just(response);
         });
     }
     
@@ -154,12 +160,12 @@ public class SettingsService {
     private Map<String, Object> buildResponse(String key, String value, Map<String, Object> response, Map<String, String> errors) {
         if (!errors.isEmpty()) {
             response.put(ERRORS, errors);
-            response.put("success", false);
+            response.put(SUCCESS, false);
         } else {
-            if (!response.containsKey("message")) {
-                response.put("message", "Configuration updated successfully");
+            if (!response.containsKey(MESSAGE)) {
+                response.put(MESSAGE, "Configuration updated successfully");
             }
-            response.put("success", true);
+            response.put(SUCCESS, true);
             response.put("key", key);
             response.put("value", value);
             log.debug("Configuration updated: {} = {}", key, value);
@@ -174,6 +180,9 @@ public class SettingsService {
      */
     private void handleSelectorType(String value, Map<String, Object> response, Map<String, String> errors) {
         validateAndUpdateSettingValue("selector-type", value, "selectorType", response, errors, this::validateSelectorType);
+        if (isPlaywrightPlatform() && errors.isEmpty()) {
+            updatePlaywrightProxySetting("SELECTOR_TYPE", value);
+        }
     }
     
     /**
@@ -182,10 +191,7 @@ public class SettingsService {
     private void handleHealEnabled(Boolean value, Map<String, Object> response, Map<String, String> errors) {
         proxyConfig.updateConfigValue("heal-enabled", value);
         response.put("healEnabled", value);
-        // Also update Playwright proxy asynchronously if platform is PLAYWRIGHT
-        if (isPlaywrightPlatform()) {
-            updatePlaywrightProxySetting("HEAL_ENABLED", value.toString());
-        }
+        updatePlaywrightProxySetting("HEAL_ENABLED", value.toString());
     }
     
     /**
@@ -196,10 +202,7 @@ public class SettingsService {
         if (validationError == null) {
             proxyConfig.updateConfigValue("recovery-tries", value);
             response.put("recoveryTries", value);
-            // Also update Playwright proxy asynchronously if platform is PLAYWRIGHT
-            if (isPlaywrightPlatform()) {
-                updatePlaywrightProxySetting("RECOVERY_TRIES", value.toString());
-            }
+            updatePlaywrightProxySetting("RECOVERY_TRIES", value.toString());
         } else {
             errors.put("recoveryTries", validationError);
         }
@@ -213,10 +216,7 @@ public class SettingsService {
         if (validationError == null) {
             proxyConfig.updateConfigValue("score-cap", value);
             response.put("scoreCap", value);
-            // Also update Playwright proxy asynchronously if platform is PLAYWRIGHT
-            if (isPlaywrightPlatform()) {
-                updatePlaywrightProxySetting("SCORE_CAP", value.toString());
-            }
+            updatePlaywrightProxySetting("SCORE_CAP", value.toString());
         } else {
             errors.put("scoreCap", validationError);
         }
@@ -230,30 +230,16 @@ public class SettingsService {
     }
     
     /**
-     * Handle Playwright-specific setting update (reactive)
-     * Used only for playwright-only settings (NODE_PATH_SHORTCUT, HEALING_SCREENSHOT, HEALING_HIGHLIGHT)
+     * Handle Playwright-only setting update (NODE_PATH_SHORTCUT, HEALING_SCREENSHOT, HEALING_HIGHLIGHT)
      */
-    private Mono<Map<String, Object>> handlePlaywrightSetting(String key, String value) {
-        return restService.updatePlaywrightSetting(key, value)
-                .timeout(java.time.Duration.ofSeconds(5))
-                .map(playwrightResponse -> {
-                    Map<String, Object> response = new HashMap<>();
-                    if (playwrightResponse != null && playwrightResponse.containsKey("success")) {
-                        response.putAll(playwrightResponse);
-                        log.debug("Playwright-proxy setting updated: {} = {}", key, value);
-                    } else {
-                        response.put("success", false);
-                        response.put(ERRORS, Map.of(ERROR, "Failed to update playwright-proxy setting"));
-                    }
-                    return response;
-                })
-                .onErrorResume(e -> {
-                    log.error("Error updating playwright-proxy setting: " + key, e);
-                    Map<String, Object> errorResponse = new HashMap<>();
-                    errorResponse.put("success", false);
-                    errorResponse.put(ERRORS, Map.of(ERROR, "Error communicating with playwright-proxy: " + e.getMessage()));
-                    return Mono.just(errorResponse);
-                });
+    private void handlePlaywrightOnlySetting(String key, String value, Map<String, Object> response, Map<String, String> errors) {
+        if (isPlaywrightPlatform()) {
+            updatePlaywrightProxySetting(key, value);
+            response.put(MESSAGE, "Setting " + key + " is managed by playwright-proxy service");
+            response.put(SUCCESS, true);
+        } else {
+            errors.put("key", "Setting " + key + " is only available for PLAYWRIGHT platform");
+        }
     }
 
     /**
@@ -292,7 +278,7 @@ public class SettingsService {
         if (!errors.isEmpty()) {
             response.put(ERRORS, errors);
         } else {
-            response.put("message", "Configuration updated successfully");
+            response.put(MESSAGE, "Configuration updated successfully");
             log.debug("Configuration updated: {}", response);
         }
         
@@ -303,14 +289,12 @@ public class SettingsService {
      * Set log level for healenium loggers
      *
      * @param logLevel The log level to set
-     * @return true if successful, false otherwise
      */
-    public boolean setLogLevel(String logLevel) {
+    public void setLogLevel(String logLevel) {
         if (!isValidLogLevel(logLevel)) {
             log.error("Invalid log level: {}", logLevel);
-            return false;
+            return;
         }
-
         try {
             LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
             Level level = Level.toLevel(logLevel);
@@ -318,11 +302,8 @@ public class SettingsService {
             logger.setLevel(level);
 
             System.setProperty("HLM_LOG_LEVEL", logLevel);
-
-            return true;
         } catch (Exception e) {
             log.error("Error setting log level", e);
-            return false;
         }
     }
 
@@ -428,15 +409,16 @@ public class SettingsService {
      * Update the log level in the Playwright proxy service
      */
     private void updatePlaywrightProxyLogLevel(String logLevel) {
-        if (isPlaywrightPlatform()) {
-            updatePlaywrightProxySetting("LOG_LEVEL", logLevel);
-        }
+        updatePlaywrightProxySetting("LOG_LEVEL", logLevel);
     }
     
     /**
-     * Update a setting in the Playwright proxy service asynchronously
+     * Update a setting in the Playwright proxy service asynchronously (only if platform is PLAYWRIGHT)
      */
     private void updatePlaywrightProxySetting(String key, String value) {
+        if (!isPlaywrightPlatform()) {
+            return;
+        }
         try {
             restService.updatePlaywrightSetting(key, value)
                 .subscribe(
