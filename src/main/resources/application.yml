@@ -1,5 +1,7 @@
 server:
   port: ${SPRING_SERVER_PORT:8085}
+  # Enable forwarded headers Spring Boot for link generation
+  forward-headers-strategy: framework
 
 proxy:
   test:
@@ -81,6 +83,22 @@ spring:
                 - Method=POST
               filters:
                 - name: ExecuteScript
+
+            - id: hlm_proxy_actuator
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/hlm-proxy/actuator,/hlm-proxy/actuator/**
+              filters:
+                - StripPrefix=1
+                - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
+
+            - id: healenium_actuator
+              uri: ${proxy.healenium.container.url}
+              predicates:
+                - Path=/healenium/actuator/**
+              filters:
+                - StripPrefix=1
+                - AddRequestHeader=X-Forwarded-Prefix, /healenium
 
             - id: healenium_backend
               uri: ${proxy.healenium.container.url}
