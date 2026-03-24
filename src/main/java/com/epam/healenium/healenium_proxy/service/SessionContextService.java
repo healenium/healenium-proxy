@@ -9,7 +9,6 @@ import com.epam.healenium.healenium_proxy.restore.RestoreDriver;
 import com.epam.healenium.healenium_proxy.restore.RestoreDriverFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.map.PassiveExpiringMap;
-import org.apache.commons.lang3.ObjectUtils;
 import org.openqa.selenium.WebElement;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

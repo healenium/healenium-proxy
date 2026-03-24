@@ -1,7 +1,12 @@
 server:
   port: ${SPRING_SERVER_PORT:8085}
+  # Enable forwarded headers Spring Boot for link generation
+  forward-headers-strategy: framework
 
 proxy:
+  test:
+    # selenium, playwright
+    platform: ${TEST_PLATFORM:selenium}
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
   healenium:
@@ -12,14 +17,29 @@ proxy:
   imitate:
     container:
       url: ${IMITATE_SERVICE:http://localhost:8000}
+  ai:
+    container:
+      url: ${HEALENIUM_AI_SERVICE:http://localhost:6565}
+  playwright:
+    container:
+      url: ${PLAYWRIGHT_PROXY_SERVICE:http://localhost:8095}
 
 spring:
   banner:
     location: /images/banner.txt
+  jmx:
+    enabled: false
   cloud:
     gateway:
       server:
         webflux:
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: "http://localhost:5173"
+                allowedMethods: "*"
+                allowedHeaders: "*"
+                maxAge: 3600
           routes:
             - id: selenium_session
               uri: ${proxy.selenium.url}
@@ -64,6 +84,48 @@ spring:
               filters:
                 - name: ExecuteScript
 
+            - id: hlm_proxy_actuator
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/hlm-proxy/actuator,/hlm-proxy/actuator/**
+              filters:
+                - StripPrefix=1
+                - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
+
+            - id: healenium_actuator
+              uri: ${proxy.healenium.container.url}
+              predicates:
+                - Path=/healenium/actuator/**
+              filters:
+                - StripPrefix=1
+                - AddRequestHeader=X-Forwarded-Prefix, /healenium
+
+            - id: healenium_backend
+              uri: ${proxy.healenium.container.url}
+              predicates:
+                - Path=/healenium/**,/screenshots/**
+
+            - id: healenium_ai
+              uri: ${proxy.ai.container.url}
+              predicates:
+                - Path=/healenium-ai/**
+              metadata:
+                response-timeout: 600000
+                connect-timeout: 10000
+
+            - id: playwright_proxy_actuator
+              uri: ${proxy.playwright.container.url}
+              predicates:
+                - Path=/hlm-playwright-proxy/actuator/**
+              filters:
+                - StripPrefix=1
+                - AddRequestHeader=X-Forwarded-Prefix, /hlm-playwright-proxy
+
+            - id: playwright_proxy
+              uri: ${proxy.playwright.container.url}
+              predicates:
+                - Path=/hlm-playwright-proxy/**
+
             - id: fallback_route
               uri: ${proxy.selenium.url}
               predicates:
@@ -73,6 +135,7 @@ healing:
   healenabled: ${HEAL_ENABLED:true}
   recoverytries: ${RECOVERY_TRIES:1}
   scorecap: ${SCORE_CAP:.6}
+  selectortype: ${SELECTOR_TYPE:cssSelector}
 logging:
   level:
     ROOT: ${SPRING_LOG_LEVEL:INFO}
@@ -81,7 +144,13 @@ logging:
     healenium: ${HLM_LOG_LEVEL:debug}
     com.epam.healenium.appium: ${HLM_LOG_LEVEL:debug}
   pattern:
-    console: '%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Moscow} %clr(%5p) %clr(${PID:- }){magenta} %clr(-){faint} %clr([%11.11t]){faint} %clr(%-32.32logger{30}){cyan} %clr(:){faint} %replace(%m){''[\n\r]'',''\\n ''} %replace(%ex){''[\r\n]'', ''\\n ''}%nopex%n'
-    file: '%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Moscow} %clr(%5p) %clr(${PID:- }){magenta} %clr(-){faint} %clr([%11.11t]){faint} %clr(%-32.32logger{30}){cyan} %clr(:){faint} %replace(%m){''[\n\r]'',''\\n ''} %replace(%ex){''[\r\n]'', ''\\n ''}%nopex%n'
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
+    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
   file:
     name: ./logs/healenium-proxy.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: ./logs/healenium-proxy-%d{yyyy-MM-dd}.%i.log.gz
+      max-file-size: 1MB
+      max-history: 1
+      total-size-cap: 100MB

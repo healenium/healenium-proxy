@@ -6,19 +6,23 @@ import com.epam.healenium.healenium_proxy.service.SessionContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
 @Slf4j(topic = "healenium")
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/session/{sessionId}/healenium")
+@RequestMapping("/session")
 public class SessionController {
 
     private final SessionContextService sessionContextService;
 
-    @PostMapping("/params")
+    @PostMapping("/{sessionId}/healenium/params")
     public ResponseEntity<Void> updateSession(@PathVariable String sessionId, @RequestBody Map<String, Object> body) {
         log.info("[Params] {}", body);
         Boolean isWaitCommand = (Boolean) body.get("isWait");
