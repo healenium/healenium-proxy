@@ -18,6 +18,8 @@ import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.epam.healenium.SelfHealingDriver.callInitActions;
+
 @Slf4j(topic = "healenium")
 @Service
 public class SessionContextService {
@@ -37,11 +39,25 @@ public class SessionContextService {
         this.jsonMapper = jsonMapper;
     }
 
-    public ProxySessionContext initSessionContext(String request) {
+    public ProxySessionContext initSessionContext(String createSessionResponseBody) {
         String url = seleniumUrl;
         ProxySessionContext sessionContext = getDefaultSessionContext(url);
         log.info("[Proxy] Using Selenium server: {}", url);
-        return sessionContext.setCreateSessionReqBody(request);
+        return sessionContext.setCreateSessionReqBody(createSessionResponseBody);
+    }
+
+    /**
+     * Lightweight helpers for extracting data from Selenium create-session response.
+     * Used by Gateway filters for logging/enrichment.
+     */
+    public String peekSessionId(String responseData) {
+        Map<String, Object> value = jsonMapper.getValue(responseData);
+        return value != null ? (String) value.get("sessionId") : null;
+    }
+
+    public Map<String, Object> peekCapabilities(String responseData) {
+        Map<String, Object> value = jsonMapper.getValue(responseData);
+        return value != null ? jsonMapper.getCapabilities(value) : null;
     }
 
     public ProxySessionContext getDefaultSessionContext() {
@@ -66,8 +82,15 @@ public class SessionContextService {
     }
 
     public String submitSessionContext(String responseData, ProxySessionContext sessionContext) {
-        String sessionId = enrichSessionContext(responseData, sessionContext);
+        Map<String, Object> value = jsonMapper.getValue(responseData);
+        sessionContext.setCapabilities(jsonMapper.getCapabilities(value));
+        String sessionId = (String) value.get("sessionId");
         sessionContextCache.put(sessionId, sessionContext);
+        try {
+            fillRestoreSelfHealingHandlers(sessionId, sessionContext);
+        } catch (Exception e) {
+            log.warn("[Proxy] Session {} healing init failed, healing degraded: {}", sessionId, e.getMessage(), e);
+        }
         return sessionId;
     }
 

@@ -1,11 +1,13 @@
 package com.epam.healenium.healenium_proxy.controller;
 
+import com.epam.healenium.healenium_proxy.auth.TenantResolver;
 import com.epam.healenium.healenium_proxy.model.SettingsDto;
 import com.epam.healenium.healenium_proxy.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +25,8 @@ import java.util.Map;
 public class SettingsController {
 
     private final SettingsService settingsService;
-    
+    private final TenantResolver tenantResolver;
+
     /**
      * Get all configuration parameters for UI display (reactive)
      */
@@ -39,17 +42,23 @@ public class SettingsController {
      * @return Mono containing ResponseEntity with status message
      */
     @PostMapping("/update")
-    public Mono<ResponseEntity<Map<String, Object>>> updateSingleSetting(@RequestBody Map<String, String> request) {
+    public Mono<ResponseEntity<Map<String, Object>>> updateSingleSetting(
+            @RequestBody Map<String, String> request,
+            ServerWebExchange exchange) {
         String key = request.get("key");
         String value = request.get("value");
-        
-        return settingsService.updateSingleSetting(key, value)
-                .map(result -> {
-                    if (settingsService.hasErrors(result)) {
-                        return ResponseEntity.badRequest().body(result);
-                    }
-                    return ResponseEntity.ok(result);
-                });
+
+        return tenantResolver.resolve(exchange)
+                .flatMap(tenantId -> settingsService.updateSingleSetting(key, value, tenantId)
+                        .map(result -> {
+                            if (settingsService.hasErrors(result)) {
+                                return ResponseEntity.badRequest().body(result);
+                            }
+                            return ResponseEntity.ok(result);
+                        }))
+                .onErrorResume(TenantResolver.TenantResolutionException.class, e ->
+                        Mono.just(ResponseEntity.status(e.getStatus())
+                                .body(Map.of("error", e.getMessage()))));
     }
 
 }

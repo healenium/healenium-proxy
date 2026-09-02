@@ -27,5 +27,6 @@ public class ProxySessionContext {
     private String createSessionReqBody;
     private Map<String, List<String>> storedSelectors = new HashMap<>();
     private SelfHealingEngine selfHealingEngine;
+    private String tenantId;
 
 }

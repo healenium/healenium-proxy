@@ -9,6 +9,8 @@ proxy:
     platform: ${TEST_PLATFORM:selenium}
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
+#    url: ${SELENIUM_SERVER_URL:https://healenium:mobitru_ak_inyL1yfB81HAIZATY8Leuu_Z96wGcc8Eya9h0sTN62KOyv6zwKL7H45cCOHLxCa7wYbnnHEf99A7zsib1Sl@browserhub-us.mobitru.com/wd/hub}
+    basic-auth: "aGVhbGVuaXVtOm1vYml0cnVfYWtfaW55TDF5ZkI4MUhBSVpBVFk4TGV1dV9aOTZ3R2NjOEV5YTloMHNUTjYyS095djZ6d0tMN0g0NWNDT0hMeENhN3dZYm5uSEVmOTlBN3pzaWIxU2w="
   healenium:
     container:
       url: ${HEALENIUM_SERVICE:http://localhost:7878}
@@ -36,7 +38,7 @@ spring:
           globalcors:
             cors-configurations:
               '[/**]':
-                allowedOrigins: "http://localhost:5173"
+                allowedOrigins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
                 allowedMethods: "*"
                 allowedHeaders: "*"
                 maxAge: 3600
@@ -92,6 +94,12 @@ spring:
                 - StripPrefix=1
                 - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
 
+            # Local proxy controllers (/me, settings, logs) — before catch-all Selenium fallback
+            - id: hlm_proxy_local
+              uri: http://localhost:${server.port}
+              predicates:
+                - Path=/hlm-proxy/**
+
             - id: healenium_actuator
               uri: ${proxy.healenium.container.url}
               predicates:
@@ -136,6 +144,21 @@ healing:
   recoverytries: ${RECOVERY_TRIES:1}
   scorecap: ${SCORE_CAP:.6}
   selectortype: ${SELECTOR_TYPE:cssSelector}
+
+healenium:
+  auth:
+    # When true, Cognito JWT is required for /healenium/** and /hlm-proxy/me
+    enabled: ${HEALENIUM_AUTH_ENABLED:false}
+    cognito-domain: ${COGNITO_DOMAIN:}
+    client-id: ${COGNITO_CLIENT_ID:}
+    logout-uri: ${COGNITO_LOGOUT_URI:}
+    default-tenant-id: ${DEFAULT_TENANT_ID:}
+  m2m:
+    internal-token: ${M2M_INTERNAL_TOKEN:}
+  membership:
+    cache-ttl: PT5M
+    cache-max-size: 10000
+
 logging:
   level:
     ROOT: ${SPRING_LOG_LEVEL:INFO}
@@ -143,6 +166,10 @@ logging:
     org.mongodb.driver.connection: WARN
     healenium: ${HLM_LOG_LEVEL:debug}
     com.epam.healenium.appium: ${HLM_LOG_LEVEL:debug}
+    org.springframework.security: INFO
+    org.springframework.web.reactive.function.client: INFO
+    org.springframework.cloud.gateway: ${SPRING_LOG_LEVEL:INFO}
+    reactor.netty: ${SPRING_LOG_LEVEL:INFO}
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
     file: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
@@ -154,3 +181,4 @@ logging:
       max-file-size: 1MB
       max-history: 1
       total-size-cap: 100MB
+

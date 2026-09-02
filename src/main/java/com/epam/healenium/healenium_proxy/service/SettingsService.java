@@ -99,7 +99,7 @@ public class SettingsService {
      * @param value New value for the configuration
      * @return Mono containing result and any validation errors
      */
-    public Mono<Map<String, Object>> updateSingleSetting(String key, String value) {
+    public Mono<Map<String, Object>> updateSingleSetting(String key, String value, String tenantId) {
         return Mono.fromCallable(() -> {
             Map<String, Object> response = new HashMap<>();
             Map<String, String> errors = new HashMap<>();
@@ -123,7 +123,7 @@ public class SettingsService {
                         return buildResponse(key, value, response, errors);
                         
                     case "LOG_LEVEL":
-                        handleLogLevel(value.toUpperCase(), response, errors);
+                        handleLogLevel(value.toUpperCase(), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "KEY_SELECTOR_URL",
@@ -234,13 +234,20 @@ public class SettingsService {
      * Handle log level setting update
      */
     private void handleLogLevel(String value, Map<String, Object> response, Map<String, String> errors) {
+        handleLogLevel(value, response, errors, "");
+    }
+
+    private void handleLogLevel(String value,
+                                Map<String, Object> response,
+                                Map<String, String> errors,
+                                String tenantId) {
         String validationError = validateLogLevel(value);
         if (validationError == null) {
             proxyConfig.updateConfigValue("log-level", value);
             response.put("logLevel", value);
 
             setLogLevel(value);
-            updateBackendLogLevel(value);
+            updateBackendLogLevel(value, tenantId);
             updateAiLogLevel(value);
             updatePlaywrightProxySetting("LOG_LEVEL", value);
         } else {
@@ -363,9 +370,9 @@ public class SettingsService {
     /**
      * Update the log level in the backend service
      */
-    private void updateBackendLogLevel(String logLevel) {
+    private void updateBackendLogLevel(String logLevel, String tenantId) {
         try {
-            restService.updateBackendLogLevel(logLevel, "ROOT")
+            restService.updateBackendLogLevel(logLevel, "ROOT", tenantId)
                 .subscribe(
                     result -> log.debug("Backend log level updated successfully: {}", result),
                     error -> log.error("Error updating backend log level", error)
