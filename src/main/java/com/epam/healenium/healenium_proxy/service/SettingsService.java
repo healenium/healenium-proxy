@@ -107,7 +107,7 @@ public class SettingsService {
             try {
                 switch (key) {
                     case "SELECTOR_TYPE":
-                        handleSelectorType(value, response, errors);
+                        handleSelectorType(value, response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "HEAL_ENABLED":
@@ -115,11 +115,11 @@ public class SettingsService {
                         return buildResponse(key, value, response, errors);
                         
                     case "RECOVERY_TRIES":
-                        handleRecoveryTries(Integer.parseInt(value), response, errors);
+                        handleRecoveryTries(Integer.parseInt(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "SCORE_CAP":
-                        handleScoreCap(Double.parseDouble(value), response, errors);
+                        handleScoreCap(Double.parseDouble(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "LOG_LEVEL":
@@ -131,6 +131,7 @@ public class SettingsService {
                     "FIND_ELEMENTS_AUTO_HEALING":
                         response.put(MESSAGE, "Setting " + key + " is managed by backend service");
                         response.put(SUCCESS, true);
+                        updateBackendSetting(key, value, tenantId);
                         return buildResponse(key, value, response, errors);
                     
                     case "NODE_PATH_SHORTCUT",
@@ -180,14 +181,19 @@ public class SettingsService {
     // ==================== Setting Handlers ====================
     
     /**
-     * Handle selector type setting update
+     * Handle selector type setting update (proxy + playwright-proxy + backend)
      */
     private void handleSelectorType(String value, Map<String, Object> response, Map<String, String> errors) {
+        handleSelectorType(value, response, errors, "");
+    }
+
+    private void handleSelectorType(String value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
         String validationError = validateSelectorType(value);
         if (validationError == null) {
             proxyConfig.updateConfigValue("selector-type", value);
             response.put("selectorType", value);
             updatePlaywrightProxySetting("SELECTOR_TYPE", value);
+            updateBackendSetting("SELECTOR_TYPE", value, tenantId);
         } else {
             errors.put("selectorType", validationError);
         }
@@ -203,28 +209,38 @@ public class SettingsService {
     }
     
     /**
-     * Handle recovery tries setting update (shared with Playwright proxy)
+     * Handle recovery tries setting update (proxy + playwright-proxy + backend)
      */
     private void handleRecoveryTries(Integer value, Map<String, Object> response, Map<String, String> errors) {
+        handleRecoveryTries(value, response, errors, "");
+    }
+
+    private void handleRecoveryTries(Integer value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
         String validationError = validateRecoveryTries(value);
         if (validationError == null) {
             proxyConfig.updateConfigValue("recovery-tries", value);
             response.put("recoveryTries", value);
             updatePlaywrightProxySetting("RECOVERY_TRIES", value.toString());
+            updateBackendSetting("RECOVERY_TRIES", value.toString(), tenantId);
         } else {
             errors.put("recoveryTries", validationError);
         }
     }
     
     /**
-     * Handle score cap setting update (shared with Playwright proxy)
+     * Handle score cap setting update (proxy + playwright-proxy + backend)
      */
     private void handleScoreCap(Double value, Map<String, Object> response, Map<String, String> errors) {
+        handleScoreCap(value, response, errors, "");
+    }
+
+    private void handleScoreCap(Double value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
         String validationError = validateScoreCap(value);
         if (validationError == null) {
             proxyConfig.updateConfigValue("score-cap", value);
             response.put("scoreCap", value);
             updatePlaywrightProxySetting("SCORE_CAP", value.toString());
+            updateBackendSetting("SCORE_CAP", value.toString(), tenantId);
         } else {
             errors.put("scoreCap", validationError);
         }
@@ -371,14 +387,21 @@ public class SettingsService {
      * Update the log level in the backend service
      */
     private void updateBackendLogLevel(String logLevel, String tenantId) {
+        updateBackendSetting("LOG_LEVEL", logLevel, tenantId);
+    }
+
+    /**
+     * Propagate a setting to healenium-backend asynchronously
+     */
+    private void updateBackendSetting(String key, String value, String tenantId) {
         try {
-            restService.updateBackendLogLevel(logLevel, "ROOT", tenantId)
+            restService.updateBackendSetting(key, value, tenantId)
                 .subscribe(
-                    result -> log.debug("Backend log level updated successfully: {}", result),
-                    error -> log.error("Error updating backend log level", error)
+                    result -> log.debug("Backend setting updated successfully: {} = {}", key, value),
+                    error -> log.warn("Could not update backend setting {} = {}: {}", key, value, error.getMessage())
                 );
         } catch (Exception e) {
-            log.error("Error updating backend log level", e);
+            log.error("Error updating backend setting: " + key, e);
         }
     }
     
