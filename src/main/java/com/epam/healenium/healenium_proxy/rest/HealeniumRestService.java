@@ -123,17 +123,17 @@ public class HealeniumRestService {
     }
 
     /**
-     * Update the log level in the backend service
+     * Update a setting in the backend service (SCORE_CAP, RECOVERY_TRIES, SELECTOR_TYPE, LOG_LEVEL, …)
      *
-     * @param logLevel   The log level to set (ERROR, WARN, INFO, DEBUG, TRACE)
-     * @param loggerName The name of the logger to update (not used anymore, kept for compatibility)
-     * @param tenantId   Tenant UUID for Pro data-plane (may be blank in Free/dev)
+     * @param key      Setting key expected by backend {@code /healenium/settings/update}
+     * @param value    New value
+     * @param tenantId Tenant UUID for Pro data-plane (may be blank in Free/dev)
      * @return Mono with the response from the backend service
      */
-    public Mono<Map<String, String>> updateBackendLogLevel(String logLevel, String loggerName, String tenantId) {
+    public Mono<Map<String, Object>> updateBackendSetting(String key, String value, String tenantId) {
         Map<String, String> requestBody = Map.of(
-                "key", "LOG_LEVEL",
-                "value", logLevel
+                "key", key,
+                "value", value
         );
 
         return backendCall(tenantId, () -> backendClient(tenantId)
@@ -142,15 +142,27 @@ public class HealeniumRestService {
                 .uri(BACKEND_SETTINGS_UPDATE_URI)
                 .bodyValue(requestBody)
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
                 .onErrorResume(e -> {
-                    log.error("Error updating backend log level: {}", e.getMessage(), e);
+                    log.error("Error updating backend setting {} = {}: {}", key, value, e.getMessage(), e);
                     return Mono.just(Map.of(
                             "status", "error",
-                            "message", "Error updating backend log level: " + e.getMessage()
+                            "message", "Error updating backend setting: " + e.getMessage()
                     ));
                 }));
+    }
+
+    /**
+     * Update the log level in the backend service
+     *
+     * @param logLevel   The log level to set (ERROR, WARN, INFO, DEBUG, TRACE)
+     * @param loggerName The name of the logger to update (not used anymore, kept for compatibility)
+     * @param tenantId   Tenant UUID for Pro data-plane (may be blank in Free/dev)
+     * @return Mono with the response from the backend service
+     */
+    public Mono<Map<String, Object>> updateBackendLogLevel(String logLevel, String loggerName, String tenantId) {
+        return updateBackendSetting("LOG_LEVEL", logLevel, tenantId);
     }
 
     /**
