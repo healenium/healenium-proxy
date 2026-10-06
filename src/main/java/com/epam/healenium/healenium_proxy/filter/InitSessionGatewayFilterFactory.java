@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.filter;
 
+import com.epam.healenium.healenium_proxy.auth.ApiKeyResolutionClient;
 import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
 import com.epam.healenium.healenium_proxy.model.ProxySessionContext;
 import com.epam.healenium.healenium_proxy.service.SessionContextService;
@@ -39,60 +40,64 @@ public class InitSessionGatewayFilterFactory
     private final ModifyResponseBodyGatewayFilterFactory modifyResponseBodyFilterFactory;
     private final SessionContextService sessionContextService;
     private final HealeniumAuthProperties properties;
+    private final ApiKeyResolutionClient apiKeyResolutionClient;
 
     public InitSessionGatewayFilterFactory(
             ModifyResponseBodyGatewayFilterFactory modifyResponseBodyFilterFactory,
             SessionContextService sessionContextService,
-            HealeniumAuthProperties properties) {
+            HealeniumAuthProperties properties,
+            ApiKeyResolutionClient apiKeyResolutionClient) {
         super(Config.class);
         this.modifyResponseBodyFilterFactory = modifyResponseBodyFilterFactory;
         this.sessionContextService = sessionContextService;
         this.properties = properties;
+        this.apiKeyResolutionClient = apiKeyResolutionClient;
     }
 
     @Override
     public GatewayFilter apply(Config config) {
         GatewayFilter filter = (exchange, chain) -> {
-            log.info("Init session filter");
             if (!properties.getAuth().isEnabled()) {
-                log.info("Init session filter isEnabled = false");
                 return buildResponseRewrite(null).filter(exchange, chain);
             }
-            log.info("Init session filter 2");
             // auth.enabled=true: validate API key before forwarding to Selenium
             // Read request body to extract capability-based API key
             return DataBufferUtils.join(exchange.getRequest().getBody())
                     .defaultIfEmpty(exchange.getResponse().bufferFactory().wrap(new byte[0]))
                     .flatMap(dataBuffer -> {
-                        log.info("Init session filter 3");
                         byte[] bytes = new byte[dataBuffer.readableByteCount()];
                         dataBuffer.read(bytes);
                         DataBufferUtils.release(dataBuffer);
                         String apiKey = extractApiKeyFromRequestBody(new String(bytes, StandardCharsets.UTF_8));
-                        log.info("Init session filter apiKey: {}", apiKey);
-                        if (!isValidUuid(apiKey)) {
-                            log.warn("InitSession: invalid or missing API key in capabilities");
+                        if (!StringUtils.hasText(apiKey)) {
+                            log.warn("InitSession: missing API key in capabilities");
                             return rejectSession(exchange);
                         }
-                        log.info("Init session filter isValidUuid");
-                        // Reconstruct request with cached body so Selenium can still read it
-                        ServerHttpRequestDecorator cachedRequest =
-                                new ServerHttpRequestDecorator(exchange.getRequest()) {
-                                    @Override
-                                    public Flux<DataBuffer> getBody() {
-                                        return Flux.just(exchange.getResponse().bufferFactory().wrap(bytes));
-                                    }
-                                };
-                        log.info("Init session filter cachedRequest: {}", cachedRequest);
-                        ServerWebExchange mutatedExchange = exchange.mutate().request(cachedRequest).build();
-                        return buildResponseRewrite(apiKey.trim()).filter(mutatedExchange, chain);
+                        // Resolve tenant from API key via backend lookup
+                        return apiKeyResolutionClient.resolve(apiKey.trim())
+                                .flatMap(tenantId -> {
+                                    log.info("Init session filter resolved tenantId={} for key", tenantId);
+                                    // Reconstruct request with cached body so Selenium can still read it
+                                    ServerHttpRequestDecorator cachedRequest =
+                                            new ServerHttpRequestDecorator(exchange.getRequest()) {
+                                                @Override
+                                                public Flux<DataBuffer> getBody() {
+                                                    return Flux.just(exchange.getResponse().bufferFactory().wrap(bytes));
+                                                }
+                                            };
+                                    ServerWebExchange mutatedExchange = exchange.mutate().request(cachedRequest).build();
+                                    return buildResponseRewrite(tenantId).filter(mutatedExchange, chain);
+                                })
+                                .switchIfEmpty(Mono.defer(() -> {
+                                    log.warn("InitSession: API key not found or disabled");
+                                    return rejectSession(exchange);
+                                }));
                     });
         };
         return new OrderedGatewayFilter(filter, NettyWriteResponseFilter.WRITE_RESPONSE_FILTER_ORDER - 1);
     }
 
     private GatewayFilter buildResponseRewrite(String preResolvedTenantId) {
-        log.info("Init session filter start buildResponseRewrite");
         ModifyResponseBodyGatewayFilterFactory.Config responseConfig =
                 new ModifyResponseBodyGatewayFilterFactory.Config();
         responseConfig.setRewriteFunction(String.class, String.class, (swe, bodyAsString) -> {
@@ -142,7 +147,6 @@ public class InitSessionGatewayFilterFactory
             }
             return Mono.just(bodyAsString);
         });
-        log.info("Init session filter end buildResponseRewrite");
         return modifyResponseBodyFilterFactory.apply(responseConfig);
     }
 
@@ -206,18 +210,6 @@ public class InitSessionGatewayFilterFactory
 
     private static String getJsonCapability(JSONObject caps) {
         return caps.optString(API_KEY_CAPABILITY, null);
-    }
-
-    private static boolean isValidUuid(String value) {
-        if (!StringUtils.hasText(value)) {
-            return false;
-        }
-        try {
-            UUID.fromString(value.trim());
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
     }
 
     @Override

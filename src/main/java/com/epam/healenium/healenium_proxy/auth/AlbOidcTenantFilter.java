@@ -93,8 +93,10 @@ public class AlbOidcTenantFilter implements WebFilter, Ordered {
                 exchange.getAttributes().put(RESOLVED_EMAIL_ATTR, email);
             }
             String username = claims.optString("username", null);
-            if (StringUtils.hasText(username)) {
-                exchange.getAttributes().put(RESOLVED_USERNAME_ATTR, username);
+            String name = claims.optString("name", null);
+            String resolvedUsername = StringUtils.hasText(name) ? name : username;
+            if (StringUtils.hasText(resolvedUsername)) {
+                exchange.getAttributes().put(RESOLVED_USERNAME_ATTR, resolvedUsername);
             }
 
             // Bootstrap endpoints only need identity — skip tenant selection

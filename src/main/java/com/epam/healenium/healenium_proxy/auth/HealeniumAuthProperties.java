@@ -12,6 +12,7 @@ public class HealeniumAuthProperties {
     private final Auth auth = new Auth();
     private final M2m m2m = new M2m();
     private final Membership membership = new Membership();
+    private final Apikey apikey = new Apikey();
 
     @Getter
     @Setter
@@ -43,6 +44,13 @@ public class HealeniumAuthProperties {
     @Setter
     public static class Membership {
         private String cacheTtl = "PT5M";
+        private long cacheMaxSize = 10000;
+    }
+
+    @Getter
+    @Setter
+    public static class Apikey {
+        private String cacheTtl = "PT10M";
         private long cacheMaxSize = 10000;
     }
 }
