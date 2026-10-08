@@ -53,7 +53,10 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
             return exchange;
         }
         ServerHttpRequest request = exchange.getRequest().mutate()
-                .headers(headers -> headers.set(INTERNAL_TOKEN_HEADER, token))
+                .headers(headers -> {
+                    headers.set(INTERNAL_TOKEN_HEADER, token);
+                    headers.set(TENANT_HEADER, "00000000-0000-0000-0000-000000000001");
+                })
                 .build();
         return exchange.mutate().request(request).build();
     }
