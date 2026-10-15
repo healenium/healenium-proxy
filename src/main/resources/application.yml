@@ -125,6 +125,13 @@ spring:
                 response-timeout: 600000
                 connect-timeout: 10000
 
+            - id: healenium_iam
+              uri: ${proxy.iam.url}
+              predicates:
+                - Path=/iam/**
+              filters:
+                - RewritePath=/iam/(?<segment>.*), /v1/$\{segment}
+
             - id: playwright_proxy_actuator
               uri: ${proxy.playwright.container.url}
               predicates:
