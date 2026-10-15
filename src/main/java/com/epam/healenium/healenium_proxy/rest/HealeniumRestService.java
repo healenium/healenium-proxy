@@ -48,35 +48,21 @@ public class HealeniumRestService {
     @Value("${proxy.playwright.container.url}")
     private String playwrightServiceUrl;
 
-    @Value("${healenium.m2m.internal-token:}")
-    private String internalToken;
-
     private WebClient.Builder backendClient(String tenantId) {
         return backendClient(tenantId, false);
     }
 
     private WebClient.Builder backendClient(String tenantId, boolean largeBuffer) {
-        requireTenantWhenM2m(tenantId);
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(healeniumContainerUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         if (largeBuffer) {
             builder.codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_LOG_BUFFER_SIZE));
         }
-        if (StringUtils.hasText(internalToken)) {
-            builder.defaultHeader(TenantAuthGlobalFilter.INTERNAL_TOKEN_HEADER, internalToken);
-        }
         if (StringUtils.hasText(tenantId)) {
             builder.defaultHeader(TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
         }
         return builder;
-    }
-
-    private void requireTenantWhenM2m(String tenantId) {
-        if (StringUtils.hasText(internalToken) && !StringUtils.hasText(tenantId)) {
-            throw new IllegalArgumentException(
-                    "Healenium-Tenant-Id is required when M2M internal token is configured");
-        }
     }
 
     private <T> Mono<T> backendCall(String tenantId, java.util.function.Supplier<Mono<T>> call) {

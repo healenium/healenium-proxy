@@ -10,15 +10,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class HealeniumAuthProperties {
 
     private final Auth auth = new Auth();
-    private final M2m m2m = new M2m();
-    private final Membership membership = new Membership();
     private final Apikey apikey = new Apikey();
 
     @Getter
     @Setter
     public static class Auth {
         /**
-         * When true, UI routes to backend require a Cognito JWT + membership.
+         * When true, UI and SDK routes require IAM Bearer JWT or API key.
          * WebDriver paths stay permitAll.
          */
         private boolean enabled = false;
@@ -28,23 +26,9 @@ public class HealeniumAuthProperties {
         /** Post-logout redirect URI (must be registered in Cognito App Client Allowed sign-out URLs) */
         private String logoutUri = "";
         /**
-         * Fallback tenant UUID for single-tenant deployments where membership DB is not populated.
-         * When non-empty, used instead of throwing FORBIDDEN on empty membership list.
+         * Fallback tenant UUID for single-tenant deployments.
          */
         private String defaultTenantId = "";
-    }
-
-    @Getter
-    @Setter
-    public static class M2m {
-        private String internalToken = "";
-    }
-
-    @Getter
-    @Setter
-    public static class Membership {
-        private String cacheTtl = "PT5M";
-        private long cacheMaxSize = 10000;
     }
 
     @Getter
@@ -54,3 +38,4 @@ public class HealeniumAuthProperties {
         private long cacheMaxSize = 10000;
     }
 }
+

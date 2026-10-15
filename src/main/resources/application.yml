@@ -151,17 +151,12 @@ healing:
 
 healenium:
   auth:
-    # When true, Cognito JWT is required for /healenium/** and /hlm-proxy/me
+    # When true, IAM auth is required for /healenium/** and /hlm-proxy/**
     enabled: ${HEALENIUM_AUTH_ENABLED:false}
     cognito-domain: ${COGNITO_DOMAIN:}
     client-id: ${COGNITO_CLIENT_ID:}
     logout-uri: ${COGNITO_LOGOUT_URI:}
     default-tenant-id: ${DEFAULT_TENANT_ID:}
-  m2m:
-    internal-token: ${M2M_INTERNAL_TOKEN:}
-  membership:
-    cache-ttl: PT5M
-    cache-max-size: 10000
 
 logging:
   level:

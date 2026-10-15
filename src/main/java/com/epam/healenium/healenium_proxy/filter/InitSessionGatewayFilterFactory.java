@@ -136,21 +136,11 @@ public class InitSessionGatewayFilterFactory
 
                 if (tenantId != null) {
                     log.info("Init Healenium-Tenant-Id={}", tenantId);
-                } else if (isM2mConfigured()) {
-                    log.error("Init Session: Pro M2M configured but capability '{}' missing or invalid UUID; "
-                                    + "skipping Healenium session context (healing disabled for this session)",
-                            API_KEY_CAPABILITY);
-                    return Mono.just(bodyAsString);
                 } else {
                     log.debug("Init Healenium-Tenant-Id: capability '{}' not found", API_KEY_CAPABILITY);
                 }
             } catch (Exception e) {
                 log.warn("Init Session: unable to parse response body. msg={}", e.getMessage());
-            }
-
-            if (isM2mConfigured() && !StringUtils.hasText(tenantId)) {
-                log.error("Init Session: refusing to register Healenium session without tenant when M2M is configured");
-                return Mono.just(bodyAsString);
             }
 
             proxySessionContext.setTenantId(tenantId);
@@ -170,10 +160,6 @@ public class InitSessionGatewayFilterFactory
         byte[] bytes = WEBDRIVER_SESSION_ERROR.getBytes(StandardCharsets.UTF_8);
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
         return exchange.getResponse().writeWith(Mono.just(buffer));
-    }
-
-    private boolean isM2mConfigured() {
-        return StringUtils.hasText(properties.getM2m().getInternalToken());
     }
 
     static String resolveTenantId(Map<String, Object> capabilities) {
