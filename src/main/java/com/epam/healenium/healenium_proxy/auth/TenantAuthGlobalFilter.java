@@ -24,6 +24,7 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
 
     public static final String TENANT_HEADER = "Healenium-Tenant-Id";
     public static final String INTERNAL_TOKEN_HEADER = "Healenium-Internal-Token";
+    public static final String API_KEY_HEADER = "X-Api-Key";
 
     private final IamAuthClient iamAuthClient;
     private final HealeniumAuthProperties properties;
@@ -40,9 +41,31 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
+        // 1. Check for SDK X-Api-Key header (used by healenium-web REST calls)
+        String apiKey = exchange.getRequest().getHeaders().getFirst(API_KEY_HEADER);
+        if (StringUtils.hasText(apiKey)) {
+            return iamAuthClient.validateApiKey(apiKey.trim())
+                    .flatMap(tenantId -> {
+                        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                                .headers(headers -> {
+                                    headers.remove(API_KEY_HEADER);
+                                    headers.remove(INTERNAL_TOKEN_HEADER);
+                                    headers.set(TENANT_HEADER, tenantId.toString());
+                                })
+                                .build();
+                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.warn("Invalid X-Api-Key provided for path: {}", path);
+                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                        return exchange.getResponse().setComplete();
+                    }));
+        }
+
+        // 2. Check for UI Bearer JWT
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
-            log.warn("Missing or invalid Bearer token for path: {}", path);
+            log.warn("Missing or invalid authentication credentials for path: {}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
