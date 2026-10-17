@@ -77,6 +77,9 @@ public class LogController {
         if (StringUtils.hasText(tenantHeader)) {
             return Mono.just(tenantHeader.trim());
         }
+        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
+            return Mono.just(properties.getAuth().getDefaultTenantId().trim());
+        }
         return Mono.empty();
     }
 
