@@ -247,8 +247,8 @@ public class HealeniumRestService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .onErrorResume(e -> {
-                    log.error("Error retrieving Playwright Proxy logs: {}", e.getMessage(), e);
-                    return Mono.just("Error retrieving Playwright Proxy logs: " + e.getMessage());
+                    log.debug("Playwright proxy logs unavailable: {}", e.getMessage());
+                    return Mono.just("Playwright proxy logs unavailable: " + e.getMessage());
                 });
     }
 
@@ -266,10 +266,10 @@ public class HealeniumRestService {
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
                 .onErrorResume(e -> {
-                    log.error("Error retrieving playwright-proxy settings: {}", e.getMessage(), e);
+                    log.debug("Playwright proxy settings unavailable: {}", e.getMessage());
                     return Mono.just(Map.of(
                             "status", "error",
-                            "message", "Error retrieving playwright-proxy settings: " + e.getMessage()
+                            "message", "Playwright proxy settings unavailable: " + e.getMessage()
                     ));
                 });
     }
@@ -294,7 +294,7 @@ public class HealeniumRestService {
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
                 .onErrorResume(e -> {
-                    log.error("Error updating playwright-proxy setting: {}", e.getMessage(), e);
+                    log.debug("Error updating playwright-proxy setting: {}", e.getMessage());
                     return Mono.just(Map.of(
                             "status", "error",
                             "message", "Error updating playwright-proxy setting: " + e.getMessage()

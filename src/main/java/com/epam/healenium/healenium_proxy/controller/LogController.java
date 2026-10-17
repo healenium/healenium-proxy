@@ -3,6 +3,7 @@ package com.epam.healenium.healenium_proxy.controller;
 import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
 import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
 import com.epam.healenium.healenium_proxy.auth.TenantAuthGlobalFilter;
+import com.epam.healenium.healenium_proxy.config.ProxyConfig;
 import com.epam.healenium.healenium_proxy.model.SessionLogResultDto;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.LogService;
@@ -43,6 +44,7 @@ public class LogController {
     private final LogService logService;
     private final IamAuthClient iamAuthClient;
     private final HealeniumAuthProperties properties;
+    private final ProxyConfig proxyConfig;
 
     /**
      * Get logs for a specific session ID
@@ -91,7 +93,11 @@ public class LogController {
                 ? restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime(), tenantId)
                 : restService.getBackendLogsForSession(sessionId, tenantId));
         logSources.put("aiLogs", restService.getAILogsForSession(sessionId));
-        logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
+        if (proxyConfig.isPlaywrightPlatform()) {
+            logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
+        } else {
+            logSources.put("playwrightLogs", Mono.just("No Playwright logs: session was executed on Selenium platform."));
+        }
 
         List<String> keys = List.copyOf(logSources.keySet());
         List<Mono<String>> logSourcesMono = List.copyOf(logSources.values());
