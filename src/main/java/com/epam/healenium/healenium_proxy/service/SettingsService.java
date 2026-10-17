@@ -433,14 +433,7 @@ public class SettingsService {
      * @return true if test platform is PLAYWRIGHT, false otherwise
      */
     private boolean isPlaywrightPlatform() {
-        try {
-            Config config = proxyConfig.getConfig();
-            String testPlatform = config.getString("test-platform");
-            return "PLAYWRIGHT".equalsIgnoreCase(testPlatform);
-        } catch (Exception e) {
-            log.debug("Could not determine test platform, assuming SELENIUM: {}", e.getMessage());
-            return false;
-        }
+        return proxyConfig.isPlaywrightPlatform();
     }
 }
 

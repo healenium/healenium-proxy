@@ -42,6 +42,17 @@ public class ProxyConfig {
     }
     
     /**
+     * Check if the configured test platform is PLAYWRIGHT
+     */
+    public boolean isPlaywrightPlatform() {
+        try {
+            return "PLAYWRIGHT".equalsIgnoreCase(config.getString("test-platform"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
      * Update configuration value
      * Note: Validation should be performed by the caller before calling this method
      * 
