@@ -20,7 +20,6 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
 
     public static final String TENANT_HEADER = "Healenium-Tenant-Id";
@@ -29,6 +28,11 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
 
     private final IamAuthClient iamAuthClient;
     private final HealeniumAuthProperties properties;
+
+    public TenantAuthGlobalFilter(IamAuthClient iamAuthClient, HealeniumAuthProperties properties) {
+        this.iamAuthClient = iamAuthClient;
+        this.properties = properties;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
