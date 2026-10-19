@@ -66,24 +66,26 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         // 2. Check for UI Bearer JWT
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            return iamAuthClient.validateBearerToken(token)
-                    .flatMap(tenantId -> {
-                        // Gateway Offloading: strip Authorization, strip Healenium-Internal-Token, inject Healenium-Tenant-Id
-                        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                                .headers(headers -> {
-                                    headers.remove(HttpHeaders.AUTHORIZATION);
-                                    headers.remove(INTERNAL_TOKEN_HEADER);
-                                    headers.set(TENANT_HEADER, tenantId.toString());
-                                })
-                                .build();
-                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
-                    })
-                    .switchIfEmpty(Mono.defer(() -> {
-                        log.warn("Invalid or expired Bearer token for path: {}", path);
-                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                        return exchange.getResponse().setComplete();
-                    }));
+            String token = authHeader.substring(7).trim();
+            if (StringUtils.hasText(token) && !"undefined".equalsIgnoreCase(token) && !"null".equalsIgnoreCase(token)) {
+                return iamAuthClient.validateBearerToken(token)
+                        .flatMap(tenantId -> {
+                            // Gateway Offloading: strip Authorization, strip Healenium-Internal-Token, inject Healenium-Tenant-Id
+                            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                                    .headers(headers -> {
+                                        headers.remove(HttpHeaders.AUTHORIZATION);
+                                        headers.remove(INTERNAL_TOKEN_HEADER);
+                                        headers.set(TENANT_HEADER, tenantId.toString());
+                                    })
+                                    .build();
+                            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                        })
+                        .switchIfEmpty(Mono.defer(() -> {
+                            log.warn("Invalid or expired Bearer token for path: {}", path);
+                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                            return exchange.getResponse().setComplete();
+                        }));
+            }
         }
 
         // 3. Fallback to defaultTenantId if configured (single-tenant / local development mode)
