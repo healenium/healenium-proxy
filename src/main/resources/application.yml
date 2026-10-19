@@ -45,6 +45,7 @@ spring:
                 allowedOrigins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
                 allowedMethods: "*"
                 allowedHeaders: "*"
+                allowCredentials: true
                 maxAge: 3600
           routes:
             - id: selenium_session
