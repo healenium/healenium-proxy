@@ -58,13 +58,15 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                                     headers.set(TENANT_HEADER, tenantId.toString());
                                 })
                                 .build();
-                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                        return chain.filter(exchange.mutate().request(mutatedRequest).build())
+                                .then(Mono.just(true));
                     })
                     .switchIfEmpty(Mono.defer(() -> {
                         log.warn("Invalid X-Api-Key provided for path: {}", path);
                         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                        return exchange.getResponse().setComplete();
-                    }));
+                        return exchange.getResponse().setComplete().then(Mono.just(false));
+                    }))
+                    .then();
         }
 
         // 2. Check for UI Bearer JWT
@@ -82,13 +84,15 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                                         headers.set(TENANT_HEADER, tenantId.toString());
                                     })
                                     .build();
-                            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                            return chain.filter(exchange.mutate().request(mutatedRequest).build())
+                                    .then(Mono.just(true));
                         })
                         .switchIfEmpty(Mono.defer(() -> {
                             log.warn("Invalid or expired Bearer token for path: {}", path);
                             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                            return exchange.getResponse().setComplete();
-                        }));
+                            return exchange.getResponse().setComplete().then(Mono.just(false));
+                        }))
+                        .then();
             }
         }
 

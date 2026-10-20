@@ -100,12 +100,14 @@ public class InitSessionGatewayFilterFactory
                         return iamAuthClient.validateApiKey(apiKey.trim())
                                 .flatMap(tenantId -> {
                                     log.info("Session init authorized for tenant: {}", tenantId);
-                                    return buildResponseRewrite(tenantId.toString()).filter(mutatedExchange, chain);
+                                    return buildResponseRewrite(tenantId.toString()).filter(mutatedExchange, chain)
+                                            .then(Mono.just(true));
                                 })
                                 .switchIfEmpty(Mono.defer(() -> {
                                     log.warn("Unauthorized session creation attempt. Invalid or disabled {}", API_KEY_CAPABILITY);
-                                    return rejectSession(exchange);
-                                }));
+                                    return rejectSession(exchange).then(Mono.just(false));
+                                }))
+                                .then();
                     });
         };
         return new OrderedGatewayFilter(filter, NettyWriteResponseFilter.WRITE_RESPONSE_FILTER_ORDER - 1);
