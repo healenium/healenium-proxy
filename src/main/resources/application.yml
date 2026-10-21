@@ -2,6 +2,9 @@ server:
   port: ${SPRING_SERVER_PORT:8085}
   # Enable forwarded headers Spring Boot for link generation
   forward-headers-strategy: framework
+  max-http-request-header-size: ${SERVER_MAX_HTTP_REQUEST_HEADER_SIZE:64KB}
+  netty:
+    max-initial-line-length: 16KB
 
 proxy:
   test:
@@ -37,8 +40,14 @@ spring:
     enabled: false
   cloud:
     gateway:
+      httpclient:
+        max-header-size: 64KB
+        max-initial-line-length: 16KB
       server:
         webflux:
+          httpclient:
+            max-header-size: 64KB
+            max-initial-line-length: 16KB
           globalcors:
             cors-configurations:
               '[/**]':
@@ -99,11 +108,13 @@ spring:
                 - StripPrefix=1
                 - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
 
-            # Local proxy controllers (/me, settings, logs) — before catch-all Selenium fallback
-            - id: hlm_proxy_local
-              uri: http://localhost:${server.port}
+            # Route /hlm-proxy/me to IAM /v1/users/me (SettingsController, LogController, LogoutController are WebFlux local controllers)
+            - id: hlm_proxy_me
+              uri: ${proxy.iam.url}
               predicates:
-                - Path=/hlm-proxy/**
+                - Path=/hlm-proxy/me
+              filters:
+                - RewritePath=/hlm-proxy/me, /v1/users/me
 
             - id: healenium_actuator
               uri: ${proxy.healenium.container.url}
