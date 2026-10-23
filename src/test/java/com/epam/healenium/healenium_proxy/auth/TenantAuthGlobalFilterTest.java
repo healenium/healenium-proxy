@@ -199,4 +199,50 @@ class TenantAuthGlobalFilterTest {
         assertEquals(fallbackTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
         assertNull(downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
     }
+
+    @Test
+    void testAuthEnabledValidTokenInQueryParamMutatesHeadersAndCallsChain() {
+        properties.getAuth().setEnabled(true);
+        UUID expectedTenantId = UUID.randomUUID();
+        when(iamAuthClient.validateBearerToken("valid_param_jwt")).thenReturn(Mono.just(expectedTenantId));
+        when(chain.filter(any())).thenReturn(Mono.empty());
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png?token=valid_param_jwt").build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(captor.capture());
+
+        ServerWebExchange downstreamExchange = captor.getValue();
+        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
+
+        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
+    }
+
+    @Test
+    void testAuthEnabledValidTokenInCookieMutatesHeadersAndCallsChain() {
+        properties.getAuth().setEnabled(true);
+        UUID expectedTenantId = UUID.randomUUID();
+        when(iamAuthClient.validateBearerToken("valid_cookie_jwt")).thenReturn(Mono.just(expectedTenantId));
+        when(chain.filter(any())).thenReturn(Mono.empty());
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png")
+                .cookie(new org.springframework.http.HttpCookie("hlm_token", "valid_cookie_jwt"))
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(captor.capture());
+
+        ServerWebExchange downstreamExchange = captor.getValue();
+        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
+
+        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
+    }
 }

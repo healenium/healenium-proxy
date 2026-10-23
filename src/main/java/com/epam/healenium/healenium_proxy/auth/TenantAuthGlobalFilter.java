@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -69,31 +70,28 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                     .then();
         }
 
-        // 2. Check for UI Bearer JWT
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7).trim();
-            if (StringUtils.hasText(token) && !"undefined".equalsIgnoreCase(token) && !"null".equalsIgnoreCase(token)) {
-                return iamAuthClient.validateBearerToken(token)
-                        .flatMap(tenantId -> {
-                            // Gateway Offloading: strip Authorization, strip Healenium-Internal-Token, inject Healenium-Tenant-Id
-                            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                                    .headers(headers -> {
-                                        headers.remove(HttpHeaders.AUTHORIZATION);
-                                        headers.remove(INTERNAL_TOKEN_HEADER);
-                                        headers.set(TENANT_HEADER, tenantId.toString());
-                                    })
-                                    .build();
-                            return chain.filter(exchange.mutate().request(mutatedRequest).build())
-                                    .then(Mono.just(true));
-                        })
-                        .switchIfEmpty(Mono.defer(() -> {
-                            log.warn("Invalid or expired Bearer token for path: {}", path);
-                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                            return exchange.getResponse().setComplete().then(Mono.just(false));
-                        }))
-                        .then();
-            }
+        // 2. Check for UI Bearer JWT (Authorization header, query parameter 'token' / 'access_token', or cookie 'hlm_token')
+        String token = extractBearerToken(exchange);
+        if (StringUtils.hasText(token) && !"undefined".equalsIgnoreCase(token) && !"null".equalsIgnoreCase(token)) {
+            return iamAuthClient.validateBearerToken(token)
+                    .flatMap(tenantId -> {
+                        // Gateway Offloading: strip Authorization, strip Healenium-Internal-Token, inject Healenium-Tenant-Id
+                        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                                .headers(headers -> {
+                                    headers.remove(HttpHeaders.AUTHORIZATION);
+                                    headers.remove(INTERNAL_TOKEN_HEADER);
+                                    headers.set(TENANT_HEADER, tenantId.toString());
+                                })
+                                .build();
+                        return chain.filter(exchange.mutate().request(mutatedRequest).build())
+                                .then(Mono.just(true));
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.warn("Invalid or expired Bearer token for path: {}", path);
+                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                        return exchange.getResponse().setComplete().then(Mono.just(false));
+                    }))
+                    .then();
         }
 
         // 3. Fallback to defaultTenantId if configured (single-tenant / local development mode)
@@ -116,6 +114,25 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         log.warn("Missing or invalid authentication credentials for path: {}", path);
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
+    }
+
+    private String extractBearerToken(ServerWebExchange exchange) {
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7).trim();
+        }
+        String queryToken = exchange.getRequest().getQueryParams().getFirst("token");
+        if (!StringUtils.hasText(queryToken)) {
+            queryToken = exchange.getRequest().getQueryParams().getFirst("access_token");
+        }
+        if (StringUtils.hasText(queryToken)) {
+            return queryToken.trim();
+        }
+        HttpCookie cookie = exchange.getRequest().getCookies().getFirst("hlm_token");
+        if (cookie != null && StringUtils.hasText(cookie.getValue())) {
+            return cookie.getValue().trim();
+        }
+        return null;
     }
 
     private static boolean isBackendDataPath(String path) {
