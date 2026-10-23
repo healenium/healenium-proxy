@@ -32,7 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
-@CrossOrigin(origins = {"http://localhost:5173"})
+@CrossOrigin(originPatterns = "*")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/hlm-proxy/logs")

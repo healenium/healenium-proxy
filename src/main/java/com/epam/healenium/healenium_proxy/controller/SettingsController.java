@@ -25,7 +25,7 @@ import java.util.UUID;
 
 @Slf4j(topic = "healenium")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(originPatterns = "*")
 @RestController
 @RequestMapping("/hlm-proxy/settings")
 public class SettingsController {
@@ -79,6 +79,9 @@ public class SettingsController {
         String tenantHeader = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
         if (StringUtils.hasText(tenantHeader)) {
             return Mono.just(tenantHeader.trim());
+        }
+        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
+            return Mono.just(properties.getAuth().getDefaultTenantId().trim());
         }
         return Mono.empty();
     }
