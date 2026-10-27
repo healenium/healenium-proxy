@@ -20,10 +20,7 @@ public class HealeniumAuthProperties {
          * WebDriver paths stay permitAll.
          */
         private boolean enabled = false;
-        /** Cognito hosted UI domain, e.g. https://healenium.auth.us-east-1.amazoncognito.com */
-        private String cognitoDomain = "";
-        private String clientId = "";
-        /** Post-logout redirect URI (must be registered in Cognito App Client Allowed sign-out URLs) */
+        /** Post-logout redirect URI */
         private String logoutUri = "";
         /**
          * Fallback tenant UUID for single-tenant deployments.

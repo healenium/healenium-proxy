@@ -172,9 +172,7 @@ healenium:
   auth:
     # When true, IAM auth is required for /healenium/** and /hlm-proxy/**
     enabled: ${HEALENIUM_AUTH_ENABLED:false}
-    cognito-domain: ${COGNITO_DOMAIN:}
-    client-id: ${COGNITO_CLIENT_ID:}
-    logout-uri: ${COGNITO_LOGOUT_URI:}
+    logout-uri: ${LOGOUT_URI:}
     default-tenant-id: ${DEFAULT_TENANT_ID:}
 
 logging:
