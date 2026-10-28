@@ -14,9 +14,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.net.URL;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
 
 @Slf4j(topic = "healenium")
 @Service
@@ -28,6 +30,7 @@ public class HealeniumRestService {
     private static final String HEALENIUM_SESSION_INIT_PATH = "/healenium/session";
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_SETTINGS_UPDATE_URI = "/healenium/settings/update";
+    private static final String TENANT_SETTINGS_URI = "/healenium/v1/tenant/settings";
     private static final String AI_SETTINGS_UPDATE_URI = "/healenium-ai/settings/update";
     private static final String BACKEND_LOGS_TIME_RANGE_URI = "/healenium/logs/time-range";
     private static final String BACKEND_LOGS_SESSION_URI = "/healenium/logs/session/{sessionId}";
@@ -300,5 +303,34 @@ public class HealeniumRestService {
                             "message", "Error updating playwright-proxy setting: " + e.getMessage()
                     ));
                 });
+    }
+
+    /**
+     * Get settings for a specific tenant from healenium-backend
+     */
+    public Mono<TenantSettingsDto> getTenantSettings(String tenantId) {
+        return backendCall(tenantId, () -> backendClient(tenantId).build()
+                .get()
+                .uri(TENANT_SETTINGS_URI)
+                .retrieve()
+                .bodyToMono(TenantSettingsDto.class)
+                .timeout(Duration.ofSeconds(3))
+                .onErrorResume(e -> {
+                    log.debug("Error fetching tenant settings from backend for tenant {}: {}", tenantId, e.getMessage());
+                    return Mono.empty();
+                }));
+    }
+
+    /**
+     * Update settings for a specific tenant in healenium-backend
+     */
+    public Mono<TenantSettingsDto> updateTenantSettings(String tenantId, TenantSettingsDto dto) {
+        return backendCall(tenantId, () -> backendClient(tenantId).build()
+                .put()
+                .uri(TENANT_SETTINGS_URI)
+                .bodyValue(dto)
+                .retrieve()
+                .bodyToMono(TenantSettingsDto.class)
+                .timeout(Duration.ofSeconds(5)));
     }
 }

@@ -38,8 +38,10 @@ public class SettingsController {
      * Get all configuration parameters for UI display (reactive)
      */
     @GetMapping
-    public Mono<ResponseEntity<SettingsDto>> getConfig() {
-        return settingsService.getAllSettings()
+    public Mono<ResponseEntity<SettingsDto>> getConfig(ServerWebExchange exchange) {
+        return resolveTenant(exchange)
+                .flatMap(settingsService::getSettings)
+                .switchIfEmpty(settingsService.getAllSettings())
                 .map(ResponseEntity::ok);
     }
 

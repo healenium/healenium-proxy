@@ -20,6 +20,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
+
 /**
  * Service for managing Healenium proxy configuration
  */
@@ -38,6 +42,9 @@ public class SettingsService {
     private final ProxyConfig proxyConfig;
     private final HealeniumRestService restService;
 
+    @Autowired(required = false)
+    private TenantSettingsClient tenantSettingsClient;
+
     /**
      * Get all configuration parameters (reactive)
      * 
@@ -46,11 +53,13 @@ public class SettingsService {
     public Mono<SettingsDto> getAllSettings() {
         Config config = proxyConfig.getConfig();
 
+        String selectorType = Objects.requireNonNullElse(config.getString("selector-type"), "cssSelector");
         SettingsDto settings = new SettingsDto()
                 .setHealEnabled(config.getBoolean("heal-enabled"))
                 .setRecoveryTries(config.getInt("recovery-tries"))
                 .setScoreCap(config.getDouble("score-cap"))
-                .setSelectorType(Objects.requireNonNullElse(config.getString("selector-type"), "cssSelector"))
+                .setSelectorType(selectorType)
+                .setHealedType("xpath".equalsIgnoreCase(selectorType) ? "xpath" : "css")
                 .setLogLevel(getCurrentLogLevel());
         
         // Only add playwright-proxy settings if test platform is PLAYWRIGHT
@@ -60,6 +69,32 @@ public class SettingsService {
             // Playwright-specific fields will be null and excluded from JSON response due to @JsonInclude(NON_NULL)
             return Mono.just(settings);
         }
+    }
+
+    /**
+     * Get settings for a specific tenant with fallback to system defaults
+     */
+    public Mono<SettingsDto> getSettings(String tenantId) {
+        if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
+            TenantSettingsDto ts = tenantSettingsClient.getSettings(tenantId);
+            if (ts != null) {
+                Config config = proxyConfig.getConfig();
+                String healedType = ts.getHealedType() != null ? ts.getHealedType() : "css";
+                String selectorType = "xpath".equalsIgnoreCase(healedType) ? "xpath" : "cssSelector";
+                SettingsDto settings = new SettingsDto()
+                        .setHealEnabled(ts.getHealEnabled() != null ? ts.getHealEnabled() : config.getBoolean("heal-enabled"))
+                        .setRecoveryTries(ts.getRecoveryTries() != null ? ts.getRecoveryTries() : config.getInt("recovery-tries"))
+                        .setScoreCap(ts.getScoreCap() != null ? ts.getScoreCap() : config.getDouble("score-cap"))
+                        .setSelectorType(selectorType)
+                        .setHealedType(healedType)
+                        .setLogLevel(getCurrentLogLevel());
+                if (isPlaywrightPlatform()) {
+                    return addPlaywrightProxySettings(settings);
+                }
+                return Mono.just(settings);
+            }
+        }
+        return getAllSettings();
     }
 
     private @NotNull Mono<SettingsDto> addPlaywrightProxySettings(SettingsDto settings) {
@@ -106,20 +141,20 @@ public class SettingsService {
             
             try {
                 switch (key) {
-                    case "SELECTOR_TYPE":
-                        handleSelectorType(value, response, errors);
+                    case "HEALED_TYPE", "SELECTOR_TYPE":
+                        handleHealedType(value, response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "HEAL_ENABLED":
-                        handleHealEnabled(Boolean.parseBoolean(value), response, errors);
+                        handleHealEnabled(Boolean.parseBoolean(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "RECOVERY_TRIES":
-                        handleRecoveryTries(Integer.parseInt(value), response, errors);
+                        handleRecoveryTries(Integer.parseInt(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "SCORE_CAP":
-                        handleScoreCap(Double.parseDouble(value), response, errors);
+                        handleScoreCap(Double.parseDouble(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
                     case "LOG_LEVEL":
@@ -180,24 +215,38 @@ public class SettingsService {
     // ==================== Setting Handlers ====================
     
     /**
-     * Handle selector type setting update
+     * Handle selector type / healed type setting update
      */
-    private void handleSelectorType(String value, Map<String, Object> response, Map<String, String> errors) {
+    private void handleHealedType(String value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
         String validationError = validateSelectorType(value);
         if (validationError == null) {
-            proxyConfig.updateConfigValue("selector-type", value);
-            response.put("selectorType", value);
-            updatePlaywrightProxySetting("SELECTOR_TYPE", value);
+            String normalizedSelector = "xpath".equalsIgnoreCase(value) ? "xpath" : "cssSelector";
+            String normalizedHealed = "xpath".equalsIgnoreCase(value) ? "xpath" : "css";
+            if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
+                TenantSettingsDto dto = new TenantSettingsDto().setHealedType(normalizedHealed);
+                tenantSettingsClient.updateSettings(tenantId, dto).subscribe();
+            } else {
+                proxyConfig.updateConfigValue("selector-type", normalizedSelector);
+            }
+            response.put("selectorType", normalizedSelector);
+            response.put("healedType", normalizedHealed);
+            updatePlaywrightProxySetting("SELECTOR_TYPE", normalizedSelector);
         } else {
             errors.put("selectorType", validationError);
+            errors.put("healedType", validationError);
         }
     }
     
     /**
      * Handle heal enabled setting update (shared with Playwright proxy)
      */
-    private void handleHealEnabled(Boolean value, Map<String, Object> response, Map<String, String> errors) {
-        proxyConfig.updateConfigValue("heal-enabled", value);
+    private void handleHealEnabled(Boolean value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
+        if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
+            TenantSettingsDto dto = new TenantSettingsDto().setHealEnabled(value);
+            tenantSettingsClient.updateSettings(tenantId, dto).subscribe();
+        } else {
+            proxyConfig.updateConfigValue("heal-enabled", value);
+        }
         response.put("healEnabled", value);
         updatePlaywrightProxySetting("HEAL_ENABLED", value.toString());
     }
@@ -205,10 +254,15 @@ public class SettingsService {
     /**
      * Handle recovery tries setting update (shared with Playwright proxy)
      */
-    private void handleRecoveryTries(Integer value, Map<String, Object> response, Map<String, String> errors) {
+    private void handleRecoveryTries(Integer value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
         String validationError = validateRecoveryTries(value);
         if (validationError == null) {
-            proxyConfig.updateConfigValue("recovery-tries", value);
+            if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
+                TenantSettingsDto dto = new TenantSettingsDto().setRecoveryTries(value);
+                tenantSettingsClient.updateSettings(tenantId, dto).subscribe();
+            } else {
+                proxyConfig.updateConfigValue("recovery-tries", value);
+            }
             response.put("recoveryTries", value);
             updatePlaywrightProxySetting("RECOVERY_TRIES", value.toString());
         } else {
@@ -219,10 +273,15 @@ public class SettingsService {
     /**
      * Handle score cap setting update (shared with Playwright proxy)
      */
-    private void handleScoreCap(Double value, Map<String, Object> response, Map<String, String> errors) {
+    private void handleScoreCap(Double value, Map<String, Object> response, Map<String, String> errors, String tenantId) {
         String validationError = validateScoreCap(value);
         if (validationError == null) {
-            proxyConfig.updateConfigValue("score-cap", value);
+            if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
+                TenantSettingsDto dto = new TenantSettingsDto().setScoreCap(value);
+                tenantSettingsClient.updateSettings(tenantId, dto).subscribe();
+            } else {
+                proxyConfig.updateConfigValue("score-cap", value);
+            }
             response.put("scoreCap", value);
             updatePlaywrightProxySetting("SCORE_CAP", value.toString());
         } else {
@@ -277,28 +336,33 @@ public class SettingsService {
      * @return Map containing updated values and any validation errors
      */
     public Map<String, Object> updateSettings(SettingsDto request) {
+        return updateSettings(request, "");
+    }
+
+    public Map<String, Object> updateSettings(SettingsDto request, String tenantId) {
         Map<String, Object> response = new HashMap<>();
         Map<String, String> errors = new HashMap<>();
 
-        // Handle healenium proxy settings (also synced to Playwright proxy for shared settings)
-        if (request.getSelectorType() != null) {
-            handleSelectorType(request.getSelectorType(), response, errors);
+        if (request.getHealedType() != null) {
+            handleHealedType(request.getHealedType(), response, errors, tenantId);
+        } else if (request.getSelectorType() != null) {
+            handleHealedType(request.getSelectorType(), response, errors, tenantId);
         }
 
         if (request.getHealEnabled() != null) {
-            handleHealEnabled(request.getHealEnabled(), response, errors);
+            handleHealEnabled(request.getHealEnabled(), response, errors, tenantId);
         }
 
         if (request.getRecoveryTries() != null) {
-            handleRecoveryTries(request.getRecoveryTries(), response, errors);
+            handleRecoveryTries(request.getRecoveryTries(), response, errors, tenantId);
         }
 
         if (request.getScoreCap() != null) {
-            handleScoreCap(request.getScoreCap(), response, errors);
+            handleScoreCap(request.getScoreCap(), response, errors, tenantId);
         }
         
         if (request.getLogLevel() != null) {
-            handleLogLevel(request.getLogLevel(), response, errors);
+            handleLogLevel(request.getLogLevel(), response, errors, tenantId);
         }
         
         if (!errors.isEmpty()) {
@@ -340,10 +404,10 @@ public class SettingsService {
     }
 
     private String validateSelectorType(String selectorType) {
-        if (selectorType.equals("cssSelector") || selectorType.equals("xpath")) {
+        if (selectorType != null && ("cssSelector".equalsIgnoreCase(selectorType) || "xpath".equalsIgnoreCase(selectorType) || "css".equalsIgnoreCase(selectorType))) {
             return null;
         }
-        return "Selector type must be 'cssSelector' or 'xpath'";
+        return "Selector type must be 'css' or 'xpath'";
     }
 
     private String validateRecoveryTries(Integer recoveryTries) {

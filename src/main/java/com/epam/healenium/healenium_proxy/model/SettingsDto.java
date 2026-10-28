@@ -19,6 +19,7 @@ public class SettingsDto {
 
     // Healenium proxy settings
     private String selectorType;
+    private String healedType;
     private Boolean healEnabled;
     private Integer recoveryTries;
     private Double scoreCap;
