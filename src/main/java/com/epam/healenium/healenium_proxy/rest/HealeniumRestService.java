@@ -30,7 +30,7 @@ public class HealeniumRestService {
     private static final String HEALENIUM_SESSION_INIT_PATH = "/healenium/session";
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_SETTINGS_UPDATE_URI = "/healenium/settings/update";
-    private static final String TENANT_SETTINGS_URI = "/healenium/v1/tenant/settings";
+    private static final String TENANT_SETTINGS_URI = "/healenium/tenant/settings";
     private static final String AI_SETTINGS_UPDATE_URI = "/healenium-ai/settings/update";
     private static final String BACKEND_LOGS_TIME_RANGE_URI = "/healenium/logs/time-range";
     private static final String BACKEND_LOGS_SESSION_URI = "/healenium/logs/session/{sessionId}";
