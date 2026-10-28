@@ -331,6 +331,10 @@ public class HealeniumRestService {
                 .bodyValue(dto)
                 .retrieve()
                 .bodyToMono(TenantSettingsDto.class)
-                .timeout(Duration.ofSeconds(5)));
+                .timeout(Duration.ofSeconds(5))
+                .onErrorResume(e -> {
+                    log.warn("Error updating tenant settings in backend for tenant {}: {}", tenantId, e.getMessage());
+                    return Mono.empty();
+                }));
     }
 }

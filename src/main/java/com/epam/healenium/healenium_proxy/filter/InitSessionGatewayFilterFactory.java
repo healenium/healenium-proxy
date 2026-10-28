@@ -26,6 +26,10 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
+import com.epam.healenium.healenium_proxy.service.TenantSettingsClient;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
@@ -44,17 +48,29 @@ public class InitSessionGatewayFilterFactory
     private final SessionContextService sessionContextService;
     private final HealeniumAuthProperties properties;
     private final IamAuthClient iamAuthClient;
+    private final TenantSettingsClient tenantSettingsClient;
+
+    @Autowired
+    public InitSessionGatewayFilterFactory(
+            ModifyResponseBodyGatewayFilterFactory modifyResponseBodyFilterFactory,
+            SessionContextService sessionContextService,
+            HealeniumAuthProperties properties,
+            IamAuthClient iamAuthClient,
+            @Autowired(required = false) TenantSettingsClient tenantSettingsClient) {
+        super(Config.class);
+        this.modifyResponseBodyFilterFactory = modifyResponseBodyFilterFactory;
+        this.sessionContextService = sessionContextService;
+        this.properties = properties;
+        this.iamAuthClient = iamAuthClient;
+        this.tenantSettingsClient = tenantSettingsClient;
+    }
 
     public InitSessionGatewayFilterFactory(
             ModifyResponseBodyGatewayFilterFactory modifyResponseBodyFilterFactory,
             SessionContextService sessionContextService,
             HealeniumAuthProperties properties,
             IamAuthClient iamAuthClient) {
-        super(Config.class);
-        this.modifyResponseBodyFilterFactory = modifyResponseBodyFilterFactory;
-        this.sessionContextService = sessionContextService;
-        this.properties = properties;
-        this.iamAuthClient = iamAuthClient;
+        this(modifyResponseBodyFilterFactory, sessionContextService, properties, iamAuthClient, null);
     }
 
     @Override
@@ -146,12 +162,21 @@ public class InitSessionGatewayFilterFactory
             }
 
             proxySessionContext.setTenantId(tenantId);
-            try {
-                sessionContextService.submitSessionContext(bodyAsString, proxySessionContext);
-            } catch (Exception e) {
-                log.error("Init Session: submitSessionContext failed, context not saved: {}", e.getMessage(), e);
-            }
-            return Mono.just(bodyAsString);
+            
+            Mono<TenantSettingsDto> settingsMono = (tenantSettingsClient != null && StringUtils.hasText(tenantId))
+                    ? tenantSettingsClient.getSettingsReactive(tenantId)
+                    : Mono.empty();
+
+            return settingsMono
+                    .defaultIfEmpty(new TenantSettingsDto())
+                    .flatMap(ts -> {
+                        try {
+                            sessionContextService.submitSessionContext(bodyAsString, proxySessionContext);
+                        } catch (Exception e) {
+                            log.error("Init Session: submitSessionContext failed, context not saved: {}", e.getMessage(), e);
+                        }
+                        return Mono.just(bodyAsString);
+                    });
         });
         return modifyResponseBodyFilterFactory.apply(responseConfig);
     }

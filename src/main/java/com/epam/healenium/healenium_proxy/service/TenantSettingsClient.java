@@ -27,7 +27,37 @@ public class TenantSettingsClient {
             .build();
 
     /**
+     * Get settings for tenant reactively (non-blocking)
+     *
+     * @param tenantId UUID string of the tenant
+     * @return Mono with TenantSettingsDto or empty if unavailable
+     */
+    public Mono<TenantSettingsDto> getSettingsReactive(String tenantId) {
+        if (!StringUtils.hasText(tenantId)) {
+            return Mono.empty();
+        }
+
+        String key = tenantId.trim();
+        TenantSettingsDto cached = cache.getIfPresent(key);
+        if (cached != null) {
+            return Mono.just(cached);
+        }
+
+        return restService.getTenantSettings(key)
+                .doOnNext(fetched -> {
+                    if (fetched != null) {
+                        cache.put(key, fetched);
+                    }
+                })
+                .onErrorResume(e -> {
+                    log.debug("Error fetching tenant settings from backend for tenant {}: {}", tenantId, e.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    /**
      * Get settings for tenant (with in-memory cache)
+     * Never blocks on Reactor Netty event loop threads!
      *
      * @param tenantId UUID string of the tenant
      * @return TenantSettingsDto or null if unavailable
@@ -41,6 +71,16 @@ public class TenantSettingsClient {
         TenantSettingsDto cached = cache.getIfPresent(key);
         if (cached != null) {
             return cached;
+        }
+
+        // On Reactor/Netty non-blocking threads, never call .block()
+        if (reactor.core.scheduler.Schedulers.isInNonBlockingThread()) {
+            // Trigger background async fetch to populate cache for subsequent requests
+            getSettingsReactive(key).subscribe(
+                    dto -> log.debug("Async cached tenant settings for {}", key),
+                    err -> log.debug("Async fetch failed for tenant {}: {}", key, err.getMessage())
+            );
+            return null;
         }
 
         try {
@@ -81,6 +121,10 @@ public class TenantSettingsClient {
                     if (saved != null) {
                         cache.put(key, saved);
                     }
+                })
+                .onErrorResume(e -> {
+                    log.warn("Failed to update tenant settings in backend for tenant {}: {}", key, e.getMessage());
+                    return Mono.empty();
                 });
     }
 }

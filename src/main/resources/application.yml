@@ -16,7 +16,7 @@ proxy:
     basic-auth: "aGVhbGVuaXVtOm1vYml0cnVfYWtfaW55TDF5ZkI4MUhBSVpBVFk4TGV1dV9aOTZ3R2NjOEV5YTloMHNUTjYyS095djZ6d0tMN0g0NWNDT0hMeENhN3dZYm5uSEVmOTlBN3pzaWIxU2w="
   healenium:
     container:
-      url: ${HEALENIUM_SERVER_URL:${HEALENIUM_SERVICE:http://localhost:7878}}
+      url: ${HEALENIUM_CONTAINER_URL:${HEALENIUM_SERVICE:${HEALENIUM_SERVER_URL:http://localhost:7878}}}
   imitate:
     container:
       url: ${IMITATE_SERVICE:http://localhost:8000}
