@@ -24,6 +24,9 @@ public class SettingsDto {
     private Integer recoveryTries;
     private Double scoreCap;
     private String logLevel;
+    private Boolean keySelectorUrl;
+    private Boolean collectMetrics;
+    private Boolean findElementsAutoHealing;
     
     // Playwright proxy specific settings (read-only, displayed from playwright-proxy service)
     private Boolean nodePathShortcut;

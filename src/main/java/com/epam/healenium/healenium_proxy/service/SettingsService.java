@@ -60,6 +60,9 @@ public class SettingsService {
                 .setScoreCap(config.getDouble("score-cap"))
                 .setSelectorType(selectorType)
                 .setHealedType("xpath".equalsIgnoreCase(selectorType) ? "xpath" : "css")
+                .setKeySelectorUrl(false)
+                .setCollectMetrics(true)
+                .setFindElementsAutoHealing(false)
                 .setLogLevel(getCurrentLogLevel());
         
         // Only add playwright-proxy settings if test platform is PLAYWRIGHT
@@ -87,6 +90,9 @@ public class SettingsService {
                                 .setScoreCap(ts.getScoreCap() != null ? ts.getScoreCap() : config.getDouble("score-cap"))
                                 .setSelectorType(selectorType)
                                 .setHealedType(healedType)
+                                .setKeySelectorUrl(ts.getKeySelectorUrl() != null ? ts.getKeySelectorUrl() : false)
+                                .setCollectMetrics(ts.getCollectMetrics() != null ? ts.getCollectMetrics() : true)
+                                .setFindElementsAutoHealing(ts.getFindElementsAutoHealing() != null ? ts.getFindElementsAutoHealing() : false)
                                 .setLogLevel(getCurrentLogLevel());
                         if (isPlaywrightPlatform()) {
                             return addPlaywrightProxySettings(settings);
@@ -166,11 +172,28 @@ public class SettingsService {
                         handleLogLevel(value.toUpperCase(), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
                         
-                    case "KEY_SELECTOR_URL",
-                    "COLLECT_METRICS",
-                    "FIND_ELEMENTS_AUTO_HEALING":
-                        response.put(MESSAGE, "Setting " + key + " is managed by backend service");
-                        response.put(SUCCESS, true);
+                    case "KEY_SELECTOR_URL":
+                        boolean keyUrl = Boolean.parseBoolean(value);
+                        if (StringUtils.hasText(tenantId)) {
+                            persistTenantSetting(tenantId, new TenantSettingsDto().setKeySelectorUrl(keyUrl));
+                        }
+                        response.put("keySelectorUrl", keyUrl);
+                        return buildResponse(key, value, response, errors);
+
+                    case "COLLECT_METRICS":
+                        boolean metrics = Boolean.parseBoolean(value);
+                        if (StringUtils.hasText(tenantId)) {
+                            persistTenantSetting(tenantId, new TenantSettingsDto().setCollectMetrics(metrics));
+                        }
+                        response.put("collectMetrics", metrics);
+                        return buildResponse(key, value, response, errors);
+
+                    case "FIND_ELEMENTS_AUTO_HEALING":
+                        boolean autoHealing = Boolean.parseBoolean(value);
+                        if (StringUtils.hasText(tenantId)) {
+                            persistTenantSetting(tenantId, new TenantSettingsDto().setFindElementsAutoHealing(autoHealing));
+                        }
+                        response.put("findElementsAutoHealing", autoHealing);
                         return buildResponse(key, value, response, errors);
                     
                     case "NODE_PATH_SHORTCUT",
