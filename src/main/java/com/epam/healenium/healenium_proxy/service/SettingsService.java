@@ -47,7 +47,7 @@ public class SettingsService {
 
     /**
      * Get all configuration parameters (reactive)
-     * 
+     *
      * @return Mono containing all configuration parameters
      */
     public Mono<SettingsDto> getAllSettings() {
@@ -64,7 +64,7 @@ public class SettingsService {
                 .setCollectMetrics(true)
                 .setFindElementsAutoHealing(false)
                 .setLogLevel(getCurrentLogLevel());
-        
+
         // Only add playwright-proxy settings if test platform is PLAYWRIGHT
         if (isPlaywrightPlatform()) {
             return addPlaywrightProxySettings(settings);
@@ -137,10 +137,10 @@ public class SettingsService {
                 .map(value -> Boolean.parseBoolean(String.valueOf(value)))
                 .orElse(false);
     }
-    
+
     /**
      * Update a single configuration parameter (reactive)
-     * 
+     *
      * @param key Configuration key to update
      * @param value New value for the configuration
      * @return Mono containing result and any validation errors
@@ -149,29 +149,29 @@ public class SettingsService {
         return Mono.fromCallable(() -> {
             Map<String, Object> response = new HashMap<>();
             Map<String, String> errors = new HashMap<>();
-            
+
             try {
                 switch (key) {
                     case "HEALED_TYPE", "SELECTOR_TYPE":
                         handleHealedType(value, response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
-                        
+
                     case "HEAL_ENABLED":
                         handleHealEnabled(Boolean.parseBoolean(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
-                        
+
                     case "RECOVERY_TRIES":
                         handleRecoveryTries(Integer.parseInt(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
-                        
+
                     case "SCORE_CAP":
                         handleScoreCap(Double.parseDouble(value), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
-                        
+
                     case "LOG_LEVEL":
                         handleLogLevel(value.toUpperCase(), response, errors, tenantId);
                         return buildResponse(key, value, response, errors);
-                        
+
                     case "KEY_SELECTOR_URL":
                         boolean keyUrl = Boolean.parseBoolean(value);
                         if (StringUtils.hasText(tenantId)) {
@@ -195,13 +195,13 @@ public class SettingsService {
                         }
                         response.put("findElementsAutoHealing", autoHealing);
                         return buildResponse(key, value, response, errors);
-                    
+
                     case "NODE_PATH_SHORTCUT",
-                    "HEALING_SCREENSHOT",
-                    "HEALING_HIGHLIGHT":
+                         "HEALING_SCREENSHOT",
+                         "HEALING_HIGHLIGHT":
                         handlePlaywrightOnlySetting(key, value, response, errors);
                         return buildResponse(key, value, response, errors);
-                        
+
                     default:
                         errors.put("key", "Unknown configuration key: " + key);
                         return buildResponse(key, value, response, errors);
@@ -220,7 +220,7 @@ public class SettingsService {
             }
         });
     }
-    
+
     /**
      * Build response map with common fields
      */
@@ -239,9 +239,9 @@ public class SettingsService {
         }
         return response;
     }
-    
+
     // ==================== Setting Handlers ====================
-    
+
     private void persistTenantSetting(String tenantId, TenantSettingsDto dto) {
         if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
             tenantSettingsClient.updateSettings(tenantId, dto)
@@ -274,7 +274,7 @@ public class SettingsService {
             errors.put("healedType", validationError);
         }
     }
-    
+
     /**
      * Handle heal enabled setting update (shared with Playwright proxy)
      */
@@ -288,7 +288,7 @@ public class SettingsService {
         response.put("healEnabled", value);
         updatePlaywrightProxySetting("HEAL_ENABLED", value.toString());
     }
-    
+
     /**
      * Handle recovery tries setting update (shared with Playwright proxy)
      */
@@ -307,7 +307,7 @@ public class SettingsService {
             errors.put("recoveryTries", validationError);
         }
     }
-    
+
     /**
      * Handle score cap setting update (shared with Playwright proxy)
      */
@@ -326,7 +326,7 @@ public class SettingsService {
             errors.put("scoreCap", validationError);
         }
     }
-    
+
     /**
      * Handle log level setting update
      */
@@ -351,7 +351,7 @@ public class SettingsService {
             errors.put("logLevel", validationError);
         }
     }
-    
+
     /**
      * Handle Playwright-only setting update (NODE_PATH_SHORTCUT, HEALING_SCREENSHOT, HEALING_HIGHLIGHT)
      */
@@ -369,7 +369,7 @@ public class SettingsService {
      * Update configuration parameters with validation (batch update)
      * Note: This method only handles healenium-proxy settings.
      * Playwright-specific settings should be updated via updateSingleSetting() for proper reactive handling.
-     * 
+     *
      * @param request Configuration update request
      * @return Map containing updated values and any validation errors
      */
@@ -398,18 +398,18 @@ public class SettingsService {
         if (request.getScoreCap() != null) {
             handleScoreCap(request.getScoreCap(), response, errors, tenantId);
         }
-        
+
         if (request.getLogLevel() != null) {
             handleLogLevel(request.getLogLevel(), response, errors, tenantId);
         }
-        
+
         if (!errors.isEmpty()) {
             response.put(ERRORS, errors);
         } else {
             response.put(MESSAGE, "Configuration updated successfully");
             log.debug("Configuration updated: {}", response);
         }
-        
+
         return response;
     }
 
@@ -433,7 +433,7 @@ public class SettingsService {
 
     /**
      * Check if configuration update has validation errors
-     * 
+     *
      * @param result Result map from updateConfiguration
      * @return true if there are errors, false otherwise
      */
@@ -461,44 +461,44 @@ public class SettingsService {
         }
         return "Score cap must be between 0 and 1";
     }
-    
+
     private String validateLogLevel(String logLevel) {
         if (logLevel != null && VALID_LOG_LEVELS.contains(logLevel.toUpperCase())) {
             return null;
         }
         return "Log level must be one of: ERROR, WARN, INFO, DEBUG, TRACE";
     }
-    
+
     /**
      * Update the log level in the backend service
      */
     private void updateBackendLogLevel(String logLevel, String tenantId) {
         try {
             restService.updateBackendLogLevel(logLevel, "ROOT", tenantId)
-                .subscribe(
-                    result -> log.debug("Backend log level updated successfully: {}", result),
-                    error -> log.error("Error updating backend log level", error)
-                );
+                    .subscribe(
+                            result -> log.debug("Backend log level updated successfully: {}", result),
+                            error -> log.error("Error updating backend log level", error)
+                    );
         } catch (Exception e) {
             log.error("Error updating backend log level", e);
         }
     }
-    
+
     /**
      * Update the log level in the AI service
      */
     private void updateAiLogLevel(String logLevel) {
         try {
             restService.updateAiLogLevel(logLevel, "ROOT")
-                .subscribe(
-                    result -> log.debug("AI service log level updated successfully: {}", result),
-                    error -> log.error("Error updating AI service log level", error)
-                );
+                    .subscribe(
+                            result -> log.debug("AI service log level updated successfully: {}", result),
+                            error -> log.error("Error updating AI service log level", error)
+                    );
         } catch (Exception e) {
             log.error("Error updating AI service log level", e);
         }
     }
-    
+
     /**
      * Update a setting in the Playwright proxy service asynchronously (only if platform is PLAYWRIGHT)
      */
@@ -508,10 +508,10 @@ public class SettingsService {
         }
         try {
             restService.updatePlaywrightSetting(key, value)
-                .subscribe(
-                    result -> log.debug("Playwright-proxy setting updated successfully: {} = {}", key, value),
-                    error -> log.warn("Could not update playwright-proxy setting {} = {}: {}", key, value, error.getMessage())
-                );
+                    .subscribe(
+                            result -> log.debug("Playwright-proxy setting updated successfully: {} = {}", key, value),
+                            error -> log.warn("Could not update playwright-proxy setting {} = {}: {}", key, value, error.getMessage())
+                    );
         } catch (Exception e) {
             log.error("Error updating playwright-proxy setting: " + key, e);
         }
@@ -531,7 +531,7 @@ public class SettingsService {
 
     /**
      * Check if the test platform is PLAYWRIGHT
-     * 
+     *
      * @return true if test platform is PLAYWRIGHT, false otherwise
      */
     private boolean isPlaywrightPlatform() {
