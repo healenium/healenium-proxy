@@ -7,7 +7,6 @@ import com.epam.healenium.healenium_proxy.model.SettingsDto;
 import com.epam.healenium.healenium_proxy.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -41,8 +40,8 @@ public class SettingsController {
     public Mono<ResponseEntity<SettingsDto>> getConfig(ServerWebExchange exchange) {
         return resolveTenant(exchange)
                 .flatMap(settingsService::getSettings)
-                .switchIfEmpty(settingsService.getAllSettings())
-                .map(ResponseEntity::ok);
+                .map(ResponseEntity::ok)
+                .switchIfEmpty(Mono.fromSupplier(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).<SettingsDto>build()));
     }
 
     /**
@@ -74,13 +73,9 @@ public class SettingsController {
             String requested = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
             return Mono.just(requested != null ? requested.trim() : "");
         }
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return iamAuthClient.validateBearerToken(authHeader.substring(7)).map(UUID::toString);
-        }
-        String tenantHeader = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-        if (StringUtils.hasText(tenantHeader)) {
-            return Mono.just(tenantHeader.trim());
+        String token = TenantAuthGlobalFilter.extractBearerToken(exchange);
+        if (StringUtils.hasText(token)) {
+            return iamAuthClient.validateBearerToken(token).map(UUID::toString);
         }
         if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
             return Mono.just(properties.getAuth().getDefaultTenantId().trim());
