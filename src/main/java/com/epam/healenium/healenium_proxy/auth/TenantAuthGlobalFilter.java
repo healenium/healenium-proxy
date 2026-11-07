@@ -1,7 +1,6 @@
 package com.epam.healenium.healenium_proxy.auth;
 
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -16,7 +15,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Validates UI Bearer JWT via IamAuthClient, strips external Authorization and legacy headers,
+ * Validates UI Bearer JWT via IamAuthClient, strips external Authorization and API key headers,
  * and injects trusted Healenium-Tenant-Id header.
  */
 @Slf4j
@@ -24,7 +23,6 @@ import reactor.core.publisher.Mono;
 public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
 
     public static final String TENANT_HEADER = "Healenium-Tenant-Id";
-    public static final String INTERNAL_TOKEN_HEADER = "Healenium-Internal-Token";
     public static final String API_KEY_HEADER = "X-Api-Key";
 
     private final IamAuthClient iamAuthClient;
@@ -51,22 +49,8 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         String apiKey = exchange.getRequest().getHeaders().getFirst(API_KEY_HEADER);
         if (StringUtils.hasText(apiKey)) {
             return iamAuthClient.validateApiKey(apiKey.trim())
-                    .flatMap(tenantId -> {
-                        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                                .headers(headers -> {
-                                    headers.remove(API_KEY_HEADER);
-                                    headers.remove(INTERNAL_TOKEN_HEADER);
-                                    headers.set(TENANT_HEADER, tenantId.toString());
-                                })
-                                .build();
-                        return chain.filter(exchange.mutate().request(mutatedRequest).build())
-                                .then(Mono.just(true));
-                    })
-                    .switchIfEmpty(Mono.defer(() -> {
-                        log.warn("Invalid X-Api-Key provided for path: {}", path);
-                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                        return exchange.getResponse().setComplete().then(Mono.just(false));
-                    }))
+                    .flatMap(tenantId -> forwardWithTenant(exchange, chain, tenantId, API_KEY_HEADER).then(Mono.just(true)))
+                    .switchIfEmpty(Mono.defer(() -> rejectUnauthorized(exchange, "Invalid X-Api-Key provided for path: " + path)))
                     .then();
         }
 
@@ -74,23 +58,8 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         String token = extractBearerToken(exchange);
         if (StringUtils.hasText(token) && !"undefined".equalsIgnoreCase(token) && !"null".equalsIgnoreCase(token)) {
             return iamAuthClient.validateBearerToken(token)
-                    .flatMap(tenantId -> {
-                        // Gateway Offloading: strip Authorization, strip Healenium-Internal-Token, inject Healenium-Tenant-Id
-                        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                                .headers(headers -> {
-                                    headers.remove(HttpHeaders.AUTHORIZATION);
-                                    headers.remove(INTERNAL_TOKEN_HEADER);
-                                    headers.set(TENANT_HEADER, tenantId.toString());
-                                })
-                                .build();
-                        return chain.filter(exchange.mutate().request(mutatedRequest).build())
-                                .then(Mono.just(true));
-                    })
-                    .switchIfEmpty(Mono.defer(() -> {
-                        log.warn("Invalid or expired Bearer token for path: {}", path);
-                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                        return exchange.getResponse().setComplete().then(Mono.just(false));
-                    }))
+                    .flatMap(tenantId -> forwardWithTenant(exchange, chain, tenantId, HttpHeaders.AUTHORIZATION).then(Mono.just(true)))
+                    .switchIfEmpty(Mono.defer(() -> rejectUnauthorized(exchange, "Invalid or expired Bearer token for path: " + path)))
                     .then();
         }
 
@@ -98,14 +67,7 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
             try {
                 UUID fallbackTenant = UUID.fromString(properties.getAuth().getDefaultTenantId().trim());
-                ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                        .headers(headers -> {
-                            headers.remove(HttpHeaders.AUTHORIZATION);
-                            headers.remove(INTERNAL_TOKEN_HEADER);
-                            headers.set(TENANT_HEADER, fallbackTenant.toString());
-                        })
-                        .build();
-                return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                return forwardWithTenant(exchange, chain, fallbackTenant, HttpHeaders.AUTHORIZATION);
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid defaultTenantId configured: {}", properties.getAuth().getDefaultTenantId());
             }
@@ -114,6 +76,25 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         log.warn("Missing or invalid authentication credentials for path: {}", path);
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
+    }
+
+    private Mono<Void> forwardWithTenant(ServerWebExchange exchange, GatewayFilterChain chain,
+                                         UUID tenantId, String headerToRemove) {
+        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                .headers(headers -> {
+                    if (headerToRemove != null) {
+                        headers.remove(headerToRemove);
+                    }
+                    headers.set(TENANT_HEADER, tenantId.toString());
+                })
+                .build();
+        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+    }
+
+    private Mono<Boolean> rejectUnauthorized(ServerWebExchange exchange, String logMessage) {
+        log.warn(logMessage);
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse().setComplete().then(Mono.just(false));
     }
 
     private String extractBearerToken(ServerWebExchange exchange) {

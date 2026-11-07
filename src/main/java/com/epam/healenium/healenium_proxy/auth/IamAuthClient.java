@@ -4,9 +4,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -37,47 +40,45 @@ public class IamAuthClient {
                 .build();
     }
 
-    @SuppressWarnings("unchecked")
     public Mono<UUID> validateApiKey(String rawApiKey) {
-        if (rawApiKey == null || rawApiKey.isBlank()) {
-            return Mono.empty();
-        }
-        String cacheKey = "key:" + hashKey(rawApiKey);
-        CachedAuthResult cached = authCache.getIfPresent(cacheKey);
-        if (cached != null) {
-            return Mono.just(cached.tenantId());
-        }
+        return validate("key", "apiKey", rawApiKey, "AUTOMATION", "IAM key validation failed");
+    }
 
-        return webClient.post()
-                .uri("/v1/auth/validate")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(Map.of("apiKey", rawApiKey))
-                .retrieve()
-                .bodyToMono(Map.class)
-                .flatMap(map -> {
-                    Object validObj = map.get("valid");
-                    boolean valid = Boolean.TRUE.equals(validObj) || "true".equalsIgnoreCase(String.valueOf(validObj));
-                    Object tenantIdObj = map.get("tenantId");
-                    if (valid && tenantIdObj != null) {
-                        UUID tenantId = UUID.fromString(tenantIdObj.toString());
-                        String role = map.get("role") != null ? map.get("role").toString() : "AUTOMATION";
-                        authCache.put(cacheKey, new CachedAuthResult(tenantId, role, "ACTIVE"));
-                        return Mono.just(tenantId);
-                    }
-                    return Mono.empty();
-                })
-                .onErrorResume(e -> {
-                    log.warn("IAM key validation failed: {}", e.getMessage());
-                    return Mono.empty();
-                });
+    public Mono<UUID> validateBearerToken(String bearerToken) {
+        return validate("token", "token", bearerToken, "MEMBER", "IAM token validation failed");
+    }
+
+    /**
+     * Resolves tenant ID from request exchange (bearer token, header, or defaultTenantId fallback).
+     */
+    public static Mono<String> resolveTenant(ServerWebExchange exchange,
+                                             HealeniumAuthProperties properties,
+                                             IamAuthClient iamAuthClient) {
+        if (!properties.getAuth().isEnabled()) {
+            String requested = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
+            return Mono.just(requested != null ? requested.trim() : "");
+        }
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            return iamAuthClient.validateBearerToken(authHeader.substring(7)).map(UUID::toString);
+        }
+        String tenantHeader = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
+        if (StringUtils.hasText(tenantHeader)) {
+            return Mono.just(tenantHeader.trim());
+        }
+        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
+            return Mono.just(properties.getAuth().getDefaultTenantId().trim());
+        }
+        return Mono.empty();
     }
 
     @SuppressWarnings("unchecked")
-    public Mono<UUID> validateBearerToken(String bearerToken) {
-        if (bearerToken == null || bearerToken.isBlank()) {
+    private Mono<UUID> validate(String cachePrefix, String payloadKey, String rawValue,
+                                String defaultRole, String logLabel) {
+        if (rawValue == null || rawValue.isBlank()) {
             return Mono.empty();
         }
-        String cacheKey = "token:" + hashKey(bearerToken);
+        String cacheKey = cachePrefix + ":" + hashKey(rawValue);
         CachedAuthResult cached = authCache.getIfPresent(cacheKey);
         if (cached != null) {
             return Mono.just(cached.tenantId());
@@ -86,7 +87,7 @@ public class IamAuthClient {
         return webClient.post()
                 .uri("/v1/auth/validate")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(Map.of("token", bearerToken))
+                .bodyValue(Map.of(payloadKey, rawValue))
                 .retrieve()
                 .bodyToMono(Map.class)
                 .flatMap(map -> {
@@ -95,14 +96,14 @@ public class IamAuthClient {
                     Object tenantIdObj = map.get("tenantId");
                     if (valid && tenantIdObj != null) {
                         UUID tenantId = UUID.fromString(tenantIdObj.toString());
-                        String role = map.get("role") != null ? map.get("role").toString() : "MEMBER";
+                        String role = map.get("role") != null ? map.get("role").toString() : defaultRole;
                         authCache.put(cacheKey, new CachedAuthResult(tenantId, role, "ACTIVE"));
                         return Mono.just(tenantId);
                     }
                     return Mono.empty();
                 })
                 .onErrorResume(e -> {
-                    log.warn("IAM token validation failed: {}", e.getMessage());
+                    log.warn("{}: {}", logLabel, e.getMessage());
                     return Mono.empty();
                 });
     }

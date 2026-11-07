@@ -152,60 +152,31 @@ public class SettingsService {
 
             try {
                 switch (key) {
-                    case "HEALED_TYPE", "SELECTOR_TYPE":
-                        handleHealedType(value, response, errors, tenantId);
-                        return buildResponse(key, value, response, errors);
-
-                    case "HEAL_ENABLED":
-                        handleHealEnabled(Boolean.parseBoolean(value), response, errors, tenantId);
-                        return buildResponse(key, value, response, errors);
-
-                    case "RECOVERY_TRIES":
-                        handleRecoveryTries(Integer.parseInt(value), response, errors, tenantId);
-                        return buildResponse(key, value, response, errors);
-
-                    case "SCORE_CAP":
-                        handleScoreCap(Double.parseDouble(value), response, errors, tenantId);
-                        return buildResponse(key, value, response, errors);
-
-                    case "LOG_LEVEL":
-                        handleLogLevel(value.toUpperCase(), response, errors, tenantId);
-                        return buildResponse(key, value, response, errors);
-
-                    case "KEY_SELECTOR_URL":
+                    case "HEALED_TYPE", "SELECTOR_TYPE" -> handleHealedType(value, response, errors, tenantId);
+                    case "HEAL_ENABLED" -> handleHealEnabled(Boolean.parseBoolean(value), response, errors, tenantId);
+                    case "RECOVERY_TRIES" -> handleRecoveryTries(Integer.parseInt(value), response, errors, tenantId);
+                    case "SCORE_CAP" -> handleScoreCap(Double.parseDouble(value), response, errors, tenantId);
+                    case "LOG_LEVEL" -> handleLogLevel(value.toUpperCase(), response, errors, tenantId);
+                    case "KEY_SELECTOR_URL" -> {
                         boolean keyUrl = Boolean.parseBoolean(value);
-                        if (StringUtils.hasText(tenantId)) {
-                            persistTenantSetting(tenantId, new TenantSettingsDto().setKeySelectorUrl(keyUrl));
-                        }
+                        persistTenantSetting(tenantId, new TenantSettingsDto().setKeySelectorUrl(keyUrl));
                         response.put("keySelectorUrl", keyUrl);
-                        return buildResponse(key, value, response, errors);
-
-                    case "COLLECT_METRICS":
+                    }
+                    case "COLLECT_METRICS" -> {
                         boolean metrics = Boolean.parseBoolean(value);
-                        if (StringUtils.hasText(tenantId)) {
-                            persistTenantSetting(tenantId, new TenantSettingsDto().setCollectMetrics(metrics));
-                        }
+                        persistTenantSetting(tenantId, new TenantSettingsDto().setCollectMetrics(metrics));
                         response.put("collectMetrics", metrics);
-                        return buildResponse(key, value, response, errors);
-
-                    case "FIND_ELEMENTS_AUTO_HEALING":
+                    }
+                    case "FIND_ELEMENTS_AUTO_HEALING" -> {
                         boolean autoHealing = Boolean.parseBoolean(value);
-                        if (StringUtils.hasText(tenantId)) {
-                            persistTenantSetting(tenantId, new TenantSettingsDto().setFindElementsAutoHealing(autoHealing));
-                        }
+                        persistTenantSetting(tenantId, new TenantSettingsDto().setFindElementsAutoHealing(autoHealing));
                         response.put("findElementsAutoHealing", autoHealing);
-                        return buildResponse(key, value, response, errors);
-
-                    case "NODE_PATH_SHORTCUT",
-                         "HEALING_SCREENSHOT",
-                         "HEALING_HIGHLIGHT":
-                        handlePlaywrightOnlySetting(key, value, response, errors);
-                        return buildResponse(key, value, response, errors);
-
-                    default:
-                        errors.put("key", "Unknown configuration key: " + key);
-                        return buildResponse(key, value, response, errors);
+                    }
+                    case "NODE_PATH_SHORTCUT", "HEALING_SCREENSHOT", "HEALING_HIGHLIGHT" ->
+                            handlePlaywrightOnlySetting(key, value, response, errors);
+                    default -> errors.put("key", "Unknown configuration key: " + key);
                 }
+                return buildResponse(key, value, response, errors);
             } catch (NumberFormatException e) {
                 errors.put("value", "Invalid value format for " + key);
                 response.put(ERRORS, errors);

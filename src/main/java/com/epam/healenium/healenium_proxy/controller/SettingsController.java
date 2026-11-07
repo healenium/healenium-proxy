@@ -2,15 +2,12 @@ package com.epam.healenium.healenium_proxy.controller;
 
 import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
 import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
-import com.epam.healenium.healenium_proxy.auth.TenantAuthGlobalFilter;
 import com.epam.healenium.healenium_proxy.model.SettingsDto;
 import com.epam.healenium.healenium_proxy.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +18,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j(topic = "healenium")
 @RequiredArgsConstructor
@@ -39,7 +35,7 @@ public class SettingsController {
      */
     @GetMapping
     public Mono<ResponseEntity<SettingsDto>> getConfig(ServerWebExchange exchange) {
-        return resolveTenant(exchange)
+        return IamAuthClient.resolveTenant(exchange, properties, iamAuthClient)
                 .flatMap(settingsService::getSettings)
                 .switchIfEmpty(settingsService.getAllSettings())
                 .map(ResponseEntity::ok);
@@ -57,34 +53,12 @@ public class SettingsController {
         String key = request.get("key");
         String value = request.get("value");
 
-        return resolveTenant(exchange)
+        return IamAuthClient.resolveTenant(exchange, properties, iamAuthClient)
                 .flatMap(tenantId -> settingsService.updateSingleSetting(key, value, tenantId)
-                        .map(result -> {
-                            if (settingsService.hasErrors(result)) {
-                                return ResponseEntity.badRequest().body(result);
-                            }
-                            return ResponseEntity.ok(result);
-                        }))
+                        .map(result -> settingsService.hasErrors(result)
+                                ? ResponseEntity.badRequest().body(result)
+                                : ResponseEntity.ok(result)))
                 .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Tenant not resolved"))));
-    }
-
-    private Mono<String> resolveTenant(ServerWebExchange exchange) {
-        if (!properties.getAuth().isEnabled()) {
-            String requested = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-            return Mono.just(requested != null ? requested.trim() : "");
-        }
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return iamAuthClient.validateBearerToken(authHeader.substring(7)).map(UUID::toString);
-        }
-        String tenantHeader = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-        if (StringUtils.hasText(tenantHeader)) {
-            return Mono.just(tenantHeader.trim());
-        }
-        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
-            return Mono.just(properties.getAuth().getDefaultTenantId().trim());
-        }
-        return Mono.empty();
     }
 }

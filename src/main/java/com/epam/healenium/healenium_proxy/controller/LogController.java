@@ -2,17 +2,14 @@ package com.epam.healenium.healenium_proxy.controller;
 
 import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
 import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
-import com.epam.healenium.healenium_proxy.auth.TenantAuthGlobalFilter;
 import com.epam.healenium.healenium_proxy.config.ProxyConfig;
 import com.epam.healenium.healenium_proxy.model.SessionLogResultDto;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.LogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -55,7 +52,7 @@ public class LogController {
     public Mono<ResponseEntity<Map<String, Object>>> getSessionLogs(
             @PathVariable String sessionId,
             ServerWebExchange exchange) {
-        return resolveTenant(exchange)
+        return IamAuthClient.resolveTenant(exchange, properties, iamAuthClient)
                 .flatMap(tenantId -> fetchSessionLogs(sessionId, tenantId))
                 .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Tenant not resolved"))))
@@ -64,25 +61,6 @@ public class LogController {
                     return Mono.just(ResponseEntity.internalServerError()
                             .body(Map.of("error", e.getMessage())));
                 });
-    }
-
-    private Mono<String> resolveTenant(ServerWebExchange exchange) {
-        if (!properties.getAuth().isEnabled()) {
-            String requested = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-            return Mono.just(requested != null ? requested.trim() : "");
-        }
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return iamAuthClient.validateBearerToken(authHeader.substring(7)).map(UUID::toString);
-        }
-        String tenantHeader = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-        if (StringUtils.hasText(tenantHeader)) {
-            return Mono.just(tenantHeader.trim());
-        }
-        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
-            return Mono.just(properties.getAuth().getDefaultTenantId().trim());
-        }
-        return Mono.empty();
     }
 
     private Mono<ResponseEntity<Map<String, Object>>> fetchSessionLogs(String sessionId, String tenantId) {

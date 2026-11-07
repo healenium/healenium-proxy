@@ -102,11 +102,10 @@ class TenantAuthGlobalFilterTest {
         when(iamAuthClient.validateBearerToken("valid_jwt")).thenReturn(Mono.just(expectedTenantId));
         when(chain.filter(any())).thenReturn(Mono.empty());
 
-        // Spoofing attempt: client passes a forged Healenium-Tenant-Id and legacy Healenium-Internal-Token
+        // Spoofing attempt: client passes a forged Healenium-Tenant-Id
         MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/elements")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer valid_jwt")
                 .header("Healenium-Tenant-Id", UUID.randomUUID().toString())
-                .header("Healenium-Internal-Token", "forged_secret")
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
@@ -121,9 +120,7 @@ class TenantAuthGlobalFilterTest {
 
         // 1. Authorization header stripped
         assertNull(downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
-        // 2. Healenium-Internal-Token header stripped
-        assertNull(downstreamHeaders.getFirst("Healenium-Internal-Token"));
-        // 3. Healenium-Tenant-Id overwritten with verified tenant_id
+        // 2. Healenium-Tenant-Id overwritten with verified tenant_id
         assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
     }
 
@@ -137,7 +134,6 @@ class TenantAuthGlobalFilterTest {
         MockServerHttpRequest request = MockServerHttpRequest.post("/healenium/elements")
                 .header(TenantAuthGlobalFilter.API_KEY_HEADER, "hlm_live_sdk_key")
                 .header("Healenium-Tenant-Id", "forged-tenant")
-                .header("Healenium-Internal-Token", "forged-token")
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
@@ -152,9 +148,7 @@ class TenantAuthGlobalFilterTest {
 
         // 1. X-Api-Key header stripped
         assertNull(downstreamHeaders.getFirst(TenantAuthGlobalFilter.API_KEY_HEADER));
-        // 2. Healenium-Internal-Token header stripped
-        assertNull(downstreamHeaders.getFirst("Healenium-Internal-Token"));
-        // 3. Healenium-Tenant-Id set to verified tenant ID
+        // 2. Healenium-Tenant-Id set to verified tenant ID
         assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
     }
 
