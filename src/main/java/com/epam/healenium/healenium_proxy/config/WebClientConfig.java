@@ -11,11 +11,4 @@ public class WebClientConfig {
     public WebClient.Builder webClientBuilder() {
         return WebClient.builder();
     }
-
-    @Bean
-    public org.springframework.cloud.gateway.config.HttpClientCustomizer gatewayHttpClientCustomizer() {
-        return httpClient -> httpClient.httpResponseDecoder(spec ->
-                spec.maxHeaderSize(65536).maxInitialLineLength(16384)
-        );
-    }
 }
