@@ -70,7 +70,8 @@ class SettingsControllerTest {
     @Test
     void testUpdateSingleSettingSuccessWithAuthDisabled() {
         properties.getAuth().setEnabled(false);
-        when(settingsService.updateSingleSetting(eq("SELECTOR_TYPE"), eq("cssSelector"), eq("")))
+        when(settingsService.updateSingleSetting(eq("SELECTOR_TYPE"), eq("cssSelector"),
+                eq(properties.getAuth().getDefaultTenantId())))
                 .thenReturn(Mono.just(Map.of("success", true, "message", "Configuration updated successfully")));
         when(settingsService.hasErrors(org.mockito.ArgumentMatchers.<Map<String, Object>>any())).thenReturn(false);
 

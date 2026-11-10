@@ -115,7 +115,7 @@ public class SessionContextService {
                         sessionConfig = sessionConfig.withValue("score-cap", ConfigValueFactory.fromAnyRef(tenantSettings.getScoreCap()));
                     }
                     if (StringUtils.hasText(tenantSettings.getHealedType())) {
-                        String selectorType = "xpath".equalsIgnoreCase(tenantSettings.getHealedType()) ? "xpath" : "cssSelector";
+                        String selectorType = "xpath".equalsIgnoreCase(tenantSettings.getHealedType()) ? "xpath" : "css";
                         sessionConfig = sessionConfig.withValue("selector-type", ConfigValueFactory.fromAnyRef(selectorType));
                     }
                 }
@@ -129,24 +129,28 @@ public class SessionContextService {
         if (caps != null) {
             Object healEnabled = getCapabilityValue(caps, "hlm:healEnabled", "hlm:heal-enabled");
             if (healEnabled != null) {
+                log.debug("CapabilityValue healEnabled {}", healEnabled);
                 sessionConfig = sessionConfig.withValue("heal-enabled", ConfigValueFactory.fromAnyRef(Boolean.parseBoolean(healEnabled.toString())));
             }
             Object recoveryTries = getCapabilityValue(caps, "hlm:recoveryTries", "hlm:recovery-tries");
             if (recoveryTries != null) {
+                log.debug("CapabilityValue recoveryTries {}", recoveryTries);
                 try {
                     sessionConfig = sessionConfig.withValue("recovery-tries", ConfigValueFactory.fromAnyRef(Integer.parseInt(recoveryTries.toString())));
                 } catch (NumberFormatException ignored) {}
             }
             Object scoreCap = getCapabilityValue(caps, "hlm:scoreCap", "hlm:score-cap");
             if (scoreCap != null) {
+                log.debug("CapabilityValue scoreCap {}", scoreCap);
                 try {
                     sessionConfig = sessionConfig.withValue("score-cap", ConfigValueFactory.fromAnyRef(Double.parseDouble(scoreCap.toString())));
                 } catch (NumberFormatException ignored) {}
             }
             Object healedType = getCapabilityValue(caps, "hlm:healedType", "hlm:healed-type", "hlm:selectorType", "hlm:selector-type");
             if (healedType != null) {
+                log.debug("CapabilityValue healedType {}", healedType);
                 String typeStr = healedType.toString();
-                String selectorType = "xpath".equalsIgnoreCase(typeStr) ? "xpath" : "cssSelector";
+                String selectorType = "xpath".equalsIgnoreCase(typeStr) ? "xpath" : "css";
                 sessionConfig = sessionConfig.withValue("selector-type", ConfigValueFactory.fromAnyRef(selectorType));
             }
         }

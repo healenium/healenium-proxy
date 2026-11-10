@@ -2,12 +2,14 @@ package com.epam.healenium.healenium_proxy.controller;
 
 import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
 import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
+import com.epam.healenium.healenium_proxy.auth.TenantAuthGlobalFilter;
 import com.epam.healenium.healenium_proxy.model.SettingsDto;
 import com.epam.healenium.healenium_proxy.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,8 +39,8 @@ public class SettingsController {
     public Mono<ResponseEntity<SettingsDto>> getConfig(ServerWebExchange exchange) {
         return IamAuthClient.resolveTenant(exchange, properties, iamAuthClient)
                 .flatMap(settingsService::getSettings)
-                .switchIfEmpty(settingsService.getAllSettings())
-                .map(ResponseEntity::ok);
+                .map(ResponseEntity::ok)
+                .switchIfEmpty(Mono.fromSupplier(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).<SettingsDto>build()));
     }
 
     /**

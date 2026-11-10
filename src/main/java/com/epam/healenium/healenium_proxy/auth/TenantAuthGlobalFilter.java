@@ -63,16 +63,6 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                     .then();
         }
 
-        // 3. Fallback to defaultTenantId if configured (single-tenant / local development mode)
-        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
-            try {
-                UUID fallbackTenant = UUID.fromString(properties.getAuth().getDefaultTenantId().trim());
-                return forwardWithTenant(exchange, chain, fallbackTenant, HttpHeaders.AUTHORIZATION);
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid defaultTenantId configured: {}", properties.getAuth().getDefaultTenantId());
-            }
-        }
-
         log.warn("Missing or invalid authentication credentials for path: {}", path);
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
@@ -97,7 +87,7 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         return exchange.getResponse().setComplete().then(Mono.just(false));
     }
 
-    private String extractBearerToken(ServerWebExchange exchange) {
+    public static String extractBearerToken(ServerWebExchange exchange) {
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7).trim();

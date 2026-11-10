@@ -4,7 +4,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -49,25 +48,20 @@ public class IamAuthClient {
     }
 
     /**
-     * Resolves tenant ID from request exchange (bearer token, header, or defaultTenantId fallback).
+     * Resolves tenant ID from request exchange
+     * when auth is disabled - from tenant header or default
+     * when auth is enabled  - from validated bearer token
      */
     public static Mono<String> resolveTenant(ServerWebExchange exchange,
                                              HealeniumAuthProperties properties,
                                              IamAuthClient iamAuthClient) {
         if (!properties.getAuth().isEnabled()) {
             String requested = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-            return Mono.just(requested != null ? requested.trim() : "");
+            return Mono.just(requested != null ? requested.trim() : properties.getAuth().getDefaultTenantId().trim());
         }
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return iamAuthClient.validateBearerToken(authHeader.substring(7)).map(UUID::toString);
-        }
-        String tenantHeader = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-        if (StringUtils.hasText(tenantHeader)) {
-            return Mono.just(tenantHeader.trim());
-        }
-        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
-            return Mono.just(properties.getAuth().getDefaultTenantId().trim());
+        String token = TenantAuthGlobalFilter.extractBearerToken(exchange);
+        if (StringUtils.hasText(token)) {
+            return iamAuthClient.validateBearerToken(token).map(UUID::toString);
         }
         return Mono.empty();
     }

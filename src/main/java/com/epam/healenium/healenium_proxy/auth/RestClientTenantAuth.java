@@ -24,7 +24,7 @@ public final class RestClientTenantAuth {
         if (client == null) {
             return;
         }
-        client.setTenantId(tenantId);
+//        client.setTenantId(tenantId);
         if (StringUtils.hasText(tenantId)) {
             wrap(client, TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
         }
