@@ -36,7 +36,7 @@ public class HealeniumRestService {
     private static final String BACKEND_LOGS_SESSION_URI = "/healenium/logs/session/{sessionId}";
     private static final String AI_LOGS_SESSION_URI = "/healenium-ai/logs/session/{sessionId}";
     private static final String PLAYWRIGHT_LOGS_SESSION_URI = "/hlm-playwright-proxy/logs/session/{sessionId}";
-    private static final String PLAYWRIGHT_SETTINGS_GET_URI = "/hlm-playwright-proxy/settings";
+    private static final String PLAYWRIGHT_SETTINGS_CACHE_INVALIDATE_URI = "/hlm-playwright-proxy/settings/cache/invalidate";
     private static final String PLAYWRIGHT_SETTINGS_UPDATE_URI = "/hlm-playwright-proxy/settings/update";
 
     @Value("${proxy.healenium.container.url}")
@@ -268,23 +268,24 @@ public class HealeniumRestService {
     }
 
     /**
-     * Get all settings from the playwright-proxy service
+     * Evict a tenant's cached settings in the playwright-proxy service
      */
-    public Mono<Map<String, Object>> getPlaywrightSettings() {
+    public Mono<Map<String, Object>> invalidatePlaywrightTenantSettings(String tenantId) {
         return WebClient.builder()
                 .baseUrl(playwrightServiceUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build()
-                .get()
-                .uri(PLAYWRIGHT_SETTINGS_GET_URI)
+                .post()
+                .uri(PLAYWRIGHT_SETTINGS_CACHE_INVALIDATE_URI)
+                .header(TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
                 .onErrorResume(e -> {
-                    log.debug("Playwright proxy settings unavailable: {}", e.getMessage());
+                    log.warn("Could not invalidate playwright-proxy settings cache for tenant {}: {}", tenantId, e.getMessage());
                     return Mono.just(Map.of(
                             "status", "error",
-                            "message", "Playwright proxy settings unavailable: " + e.getMessage()
+                            "message", "Error invalidating playwright-proxy settings cache: " + e.getMessage()
                     ));
                 });
     }

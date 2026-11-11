@@ -23,9 +23,9 @@ public class HealeniumAuthProperties {
         /** Post-logout redirect URI */
         private String logoutUri = "";
         /**
-         * Fallback tenant UUID for single-tenant deployments.
+         * Anonymous tenant id. Requests with no tenant use this value.
          */
-        private String defaultTenantId = "";
+        private String defaultTenantId = "00000000-0000-0000-0000-000000000001";
     }
 
     @Getter

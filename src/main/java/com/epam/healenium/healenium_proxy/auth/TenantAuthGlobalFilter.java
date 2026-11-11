@@ -169,7 +169,7 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
         return exchange.getResponse().setComplete().then(Mono.just(false));
     }
 
-    private String extractBearerToken(ServerWebExchange exchange) {
+    public static String extractBearerToken(ServerWebExchange exchange) {
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7).trim();

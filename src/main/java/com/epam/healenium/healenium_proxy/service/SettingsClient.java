@@ -1,5 +1,6 @@
 package com.epam.healenium.healenium_proxy.service;
 
+import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
 import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -16,9 +17,10 @@ import java.util.concurrent.TimeUnit;
 @Slf4j(topic = "healenium")
 @Service
 @RequiredArgsConstructor
-public class TenantSettingsClient {
+public class SettingsClient {
 
     private final HealeniumRestService restService;
+    private final HealeniumAuthProperties authProperties;
 
     // Cache tenant settings for 3 minutes to avoid overhead on every session initialization
     private final Cache<String, TenantSettingsDto> cache = Caffeine.newBuilder()
@@ -27,13 +29,25 @@ public class TenantSettingsClient {
             .build();
 
     /**
+     * Anonymous user: no tenant, or {@code healenium.auth.default-tenant-id}.
+     * Its settings are the proxy defaults, never a tenant's row.
+     */
+    public boolean isDefaultTenant(String tenantId) {
+        if (!StringUtils.hasText(tenantId)) {
+            return true;
+        }
+        String configured = authProperties.getAuth().getDefaultTenantId();
+        return StringUtils.hasText(configured) && configured.trim().equalsIgnoreCase(tenantId.trim());
+    }
+
+    /**
      * Get settings for tenant reactively (non-blocking)
      *
      * @param tenantId UUID string of the tenant
-     * @return Mono with TenantSettingsDto or empty if unavailable
+     * @return Mono with TenantSettingsDto, or empty if unavailable or for the default tenant
      */
     public Mono<TenantSettingsDto> getSettingsReactive(String tenantId) {
-        if (!StringUtils.hasText(tenantId)) {
+        if (isDefaultTenant(tenantId)) {
             return Mono.empty();
         }
 
@@ -60,10 +74,10 @@ public class TenantSettingsClient {
      * Never blocks on Reactor Netty event loop threads!
      *
      * @param tenantId UUID string of the tenant
-     * @return TenantSettingsDto or null if unavailable
+     * @return TenantSettingsDto, or null if unavailable or for the default tenant
      */
     public TenantSettingsDto getSettings(String tenantId) {
-        if (!StringUtils.hasText(tenantId)) {
+        if (isDefaultTenant(tenantId)) {
             return null;
         }
 
@@ -111,8 +125,8 @@ public class TenantSettingsClient {
      * Update settings for a tenant and refresh the cache
      */
     public Mono<TenantSettingsDto> updateSettings(String tenantId, TenantSettingsDto dto) {
-        if (!StringUtils.hasText(tenantId)) {
-            return Mono.error(new IllegalArgumentException("Tenant ID cannot be null or empty"));
+        if (isDefaultTenant(tenantId)) {
+            return Mono.error(new IllegalArgumentException("The default tenant has no settings row"));
         }
 
         String key = tenantId.trim();

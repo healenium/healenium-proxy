@@ -79,6 +79,23 @@ class TenantAuthGlobalFilterTest {
     }
 
     @Test
+    void testAuthEnabledLoginPathsPassWithoutToken() {
+        properties.getAuth().setEnabled(true);
+        when(chain.filter(any())).thenReturn(Mono.empty());
+
+        for (String path : new String[]{"/iam/auth/exchange", "/iam/auth/refresh"}) {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.post(path).build());
+
+            StepVerifier.create(filter.filter(exchange, chain))
+                    .verifyComplete();
+
+            verify(chain).filter(exchange);
+        }
+        verifyNoInteractions(iamAuthClient);
+    }
+
+    @Test
     void testAuthEnabledInvalidTokenRejects401() {
         properties.getAuth().setEnabled(true);
         when(iamAuthClient.validateBearerToken("invalid_jwt")).thenReturn(Mono.empty());
@@ -170,11 +187,9 @@ class TenantAuthGlobalFilterTest {
     }
 
     @Test
-    void testAuthEnabledMissingAuthHeaderWithDefaultTenantIdUsesFallback() {
+    void testAuthEnabledMissingAuthHeaderRejectsEvenWhenDefaultTenantIdIsSet() {
         properties.getAuth().setEnabled(true);
-        UUID fallbackTenantId = UUID.randomUUID();
-        properties.getAuth().setDefaultTenantId(fallbackTenantId.toString());
-        when(chain.filter(any())).thenReturn(Mono.empty());
+        properties.getAuth().setDefaultTenantId(UUID.randomUUID().toString());
 
         MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/report/all")
                 .header("Healenium-Tenant-Id", "forged-tenant")
@@ -184,14 +199,8 @@ class TenantAuthGlobalFilterTest {
         StepVerifier.create(filter.filter(exchange, chain))
                 .verifyComplete();
 
-        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
-        verify(chain).filter(captor.capture());
-
-        ServerWebExchange downstreamExchange = captor.getValue();
-        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
-
-        assertEquals(fallbackTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
-        assertNull(downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(chain);
     }
 
     @Test

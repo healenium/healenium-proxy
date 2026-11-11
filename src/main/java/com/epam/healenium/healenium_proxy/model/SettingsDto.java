@@ -8,7 +8,6 @@ import lombok.experimental.Accessors;
 
 /**
  * Request model for healenium proxy configuration parameters
- * Note: Shared settings (healEnabled, recoveryTries, scoreCap) are also synced to Playwright proxy
  */
 @Data
 @NoArgsConstructor
@@ -27,11 +26,6 @@ public class SettingsDto {
     private Boolean keySelectorUrl;
     private Boolean collectMetrics;
     private Boolean findElementsAutoHealing;
-    
-    // Playwright proxy specific settings (read-only, displayed from playwright-proxy service)
-    private Boolean nodePathShortcut;
-    private Boolean healingScreenshot;
-    private Boolean healingHighlight;
 }
 
 

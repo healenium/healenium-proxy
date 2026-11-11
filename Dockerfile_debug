@@ -2,7 +2,7 @@ FROM eclipse-temurin:23
 
 LABEL maintainer="healenium"
 
-ENV JAR=hlm-proxy.jar
+ENV JAR=app.jar
 ENV EXECUTABLE=run.sh
 
 WORKDIR /
