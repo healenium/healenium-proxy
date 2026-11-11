@@ -12,8 +12,6 @@ proxy:
     platform: ${TEST_PLATFORM:selenium}
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
-#    url: ${SELENIUM_SERVER_URL:https://healenium:mobitru_ak_inyL1yfB81HAIZATY8Leuu_Z96wGcc8Eya9h0sTN62KOyv6zwKL7H45cCOHLxCa7wYbnnHEf99A7zsib1Sl@browserhub-us.mobitru.com/wd/hub}
-    basic-auth: "aGVhbGVuaXVtOm1vYml0cnVfYWtfaW55TDF5ZkI4MUhBSVpBVFk4TGV1dV9aOTZ3R2NjOEV5YTloMHNUTjYyS095djZ6d0tMN0g0NWNDT0hMeENhN3dZYm5uSEVmOTlBN3pzaWIxU2w="
   healenium:
     container:
       url: ${HEALENIUM_CONTAINER_URL:${HEALENIUM_SERVICE:${HEALENIUM_SERVER_URL:http://localhost:7878}}}

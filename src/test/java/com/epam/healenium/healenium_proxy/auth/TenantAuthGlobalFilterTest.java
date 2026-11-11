@@ -195,13 +195,56 @@ class TenantAuthGlobalFilterTest {
     }
 
     @Test
-    void testAuthEnabledValidTokenInQueryParamMutatesHeadersAndCallsChain() {
+    void testAuthEnabledTokenInQueryParamRejectedWith401() {
+        properties.getAuth().setEnabled(true);
+
+        MockServerHttpRequest tokenRequest = MockServerHttpRequest.get("/screenshots/hash123/img.png?token=valid_param_jwt").build();
+        MockServerWebExchange tokenExchange = MockServerWebExchange.from(tokenRequest);
+
+        StepVerifier.create(filter.filter(tokenExchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, tokenExchange.getResponse().getStatusCode());
+
+        MockServerHttpRequest accessTokenRequest = MockServerHttpRequest.get("/iam/users/me?access_token=valid_param_jwt").build();
+        MockServerWebExchange accessTokenExchange = MockServerWebExchange.from(accessTokenRequest);
+
+        StepVerifier.create(filter.filter(accessTokenExchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, accessTokenExchange.getResponse().getStatusCode());
+        verifyNoInteractions(iamAuthClient);
+        verifyNoInteractions(chain);
+    }
+
+    @Test
+    void testAuthEnabledTokenInCookieRejectedWith401() {
+        properties.getAuth().setEnabled(true);
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png")
+                .cookie(new org.springframework.http.HttpCookie("hlm_token", "valid_cookie_jwt"))
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(iamAuthClient);
+        verifyNoInteractions(chain);
+    }
+
+    @Test
+    void testAuthEnabledStripsCookieAndCredentialsWhenForwardingToBackend() {
         properties.getAuth().setEnabled(true);
         UUID expectedTenantId = UUID.randomUUID();
-        when(iamAuthClient.validateBearerToken("valid_param_jwt")).thenReturn(Mono.just(expectedTenantId));
+        when(iamAuthClient.validateBearerToken("valid_jwt")).thenReturn(Mono.just(expectedTenantId));
         when(chain.filter(any())).thenReturn(Mono.empty());
 
-        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png?token=valid_param_jwt").build();
+        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer valid_jwt")
+                .cookie(new org.springframework.http.HttpCookie("hlm_refresh_token", "secret_refresh"))
+                .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
         StepVerifier.create(filter.filter(exchange, chain))
@@ -210,21 +253,31 @@ class TenantAuthGlobalFilterTest {
         ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
         verify(chain).filter(captor.capture());
 
-        ServerWebExchange downstreamExchange = captor.getValue();
-        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
-
+        HttpHeaders downstreamHeaders = captor.getValue().getRequest().getHeaders();
         assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
+        assertNull(downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
+        assertNull(downstreamHeaders.getFirst(HttpHeaders.COOKIE));
     }
 
     @Test
-    void testAuthEnabledValidTokenInCookieMutatesHeadersAndCallsChain() {
-        properties.getAuth().setEnabled(true);
-        UUID expectedTenantId = UUID.randomUUID();
-        when(iamAuthClient.validateBearerToken("valid_cookie_jwt")).thenReturn(Mono.just(expectedTenantId));
+    void testInternalValidateEndpointBlockedWith403() {
+        MockServerHttpRequest request = MockServerHttpRequest.post("/iam/auth/validate").build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.FORBIDDEN, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(chain);
+    }
+
+    @Test
+    void testPublicIamPathsForwardedWithoutAuthAndSanitizeHeaders() {
         when(chain.filter(any())).thenReturn(Mono.empty());
 
-        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png")
-                .cookie(new org.springframework.http.HttpCookie("hlm_token", "valid_cookie_jwt"))
+        MockServerHttpRequest request = MockServerHttpRequest.post("/iam/auth/exchange")
+                .header("X-Tenant-Id", UUID.randomUUID().toString())
+                .header("Healenium-Tenant-Id", UUID.randomUUID().toString())
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
@@ -237,6 +290,67 @@ class TenantAuthGlobalFilterTest {
         ServerWebExchange downstreamExchange = captor.getValue();
         HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
 
+        assertNull(downstreamHeaders.getFirst("X-Tenant-Id"));
+        assertNull(downstreamHeaders.getFirst("Healenium-Tenant-Id"));
+        verifyNoInteractions(iamAuthClient);
+    }
+
+    @Test
+    void testProtectedIamPathMissingTokenRejects401() {
+        properties.getAuth().setEnabled(true);
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/api-keys").build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(chain);
+    }
+
+    @Test
+    void testProtectedIamPathInvalidTokenRejects401() {
+        properties.getAuth().setEnabled(true);
+        when(iamAuthClient.validateBearerToken("bad_token")).thenReturn(Mono.empty());
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/api-keys")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer bad_token")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(chain);
+    }
+
+    @Test
+    void testProtectedIamPathValidTokenSanitizesSpoofedHeadersAndForwardsBearer() {
+        properties.getAuth().setEnabled(true);
+        UUID expectedTenantId = UUID.randomUUID();
+        when(iamAuthClient.validateBearerToken("valid_token")).thenReturn(Mono.just(expectedTenantId));
+        when(chain.filter(any())).thenReturn(Mono.empty());
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/users/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer valid_token")
+                .header("X-Tenant-Id", UUID.randomUUID().toString())
+                .header("Healenium-Tenant-Id", UUID.randomUUID().toString())
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(captor.capture());
+
+        ServerWebExchange downstreamExchange = captor.getValue();
+        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
+
+        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("X-Tenant-Id"));
         assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
+        assertEquals("Bearer valid_token", downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
     }
 }

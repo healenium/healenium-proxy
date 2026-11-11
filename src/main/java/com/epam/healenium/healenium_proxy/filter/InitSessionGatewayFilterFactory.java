@@ -31,8 +31,6 @@ import com.epam.healenium.healenium_proxy.service.TenantSettingsClient;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.UUID;
 
 @Component
 @Slf4j
@@ -40,7 +38,7 @@ public class InitSessionGatewayFilterFactory
         extends AbstractGatewayFilterFactory<InitSessionGatewayFilterFactory.Config>
         implements Ordered {
 
-    public static final String API_KEY_CAPABILITY = "hlm:api_key";
+    public static final String API_KEY_CAPABILITY = "hlm:api-key";
     private static final String WEBDRIVER_SESSION_ERROR =
             "{\"value\":{\"error\":\"session not created\",\"message\":\"Invalid or missing Healenium API key\"}}";
 
@@ -140,11 +138,6 @@ public class InitSessionGatewayFilterFactory
 
             try {
                 sessionId = sessionContextService.peekSessionId(bodyAsString);
-                if (tenantId == null) {
-                    // auth.enabled=false: read tenant from response capabilities
-                    Map<String, Object> capabilities = sessionContextService.peekCapabilities(bodyAsString);
-                    tenantId = resolveTenantId(capabilities);
-                }
 
                 if (sessionId != null) {
                     log.info("Init Session: sessionId={}", sessionId);
@@ -154,8 +147,6 @@ public class InitSessionGatewayFilterFactory
 
                 if (tenantId != null) {
                     log.info("Init Healenium-Tenant-Id={}", tenantId);
-                } else {
-                    log.debug("Init Healenium-Tenant-Id: capability '{}' not found", API_KEY_CAPABILITY);
                 }
             } catch (Exception e) {
                 log.warn("Init Session: unable to parse response body. msg={}", e.getMessage());
@@ -187,19 +178,6 @@ public class InitSessionGatewayFilterFactory
         byte[] bytes = WEBDRIVER_SESSION_ERROR.getBytes(StandardCharsets.UTF_8);
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
         return exchange.getResponse().writeWith(Mono.just(buffer));
-    }
-
-    static String resolveTenantId(Map<String, Object> capabilities) {
-        String tenantId = getCapabilityAsString(capabilities, API_KEY_CAPABILITY);
-        if (tenantId == null) {
-            return null;
-        }
-        try {
-            return UUID.fromString(tenantId.trim()).toString();
-        } catch (IllegalArgumentException e) {
-            log.error("Init Session: capability tenant value is not a UUID: {}", tenantId);
-            return null;
-        }
     }
 
     static String extractApiKeyFromRequestBody(String requestBody) {
@@ -297,14 +275,6 @@ public class InitSessionGatewayFilterFactory
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE;
-    }
-
-    private static String getCapabilityAsString(Map<String, Object> capabilities, String name) {
-        if (capabilities == null) {
-            return null;
-        }
-        Object value = capabilities.get(name);
-        return value != null ? String.valueOf(value) : null;
     }
 
     public static class Config {
