@@ -10,7 +10,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -104,5 +110,72 @@ class IamAuthClientTest {
 
         StepVerifier.create(iamAuthClient.validateBearerToken("bad_token"))
                 .verifyComplete();
+    }
+
+    @Test
+    void testValidateBearerToken_CacheEntryCappedAtJwtExp() {
+        Instant start = Instant.parse("2026-11-11T12:00:00Z");
+        AtomicReference<Instant> currentTime = new AtomicReference<>(start);
+        Clock mutableClock = new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return ZoneId.of("UTC");
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return currentTime.get();
+            }
+        };
+
+        String baseUrl = mockWebServer.url("/").toString();
+        IamAuthClient client = new IamAuthClient(WebClient.builder(), baseUrl, 300, 1000, mutableClock);
+
+        long expSeconds = start.plusSeconds(10).getEpochSecond();
+        String jwt = buildUnsignedJwtWithExp(expSeconds);
+        UUID expectedTenantId = UUID.randomUUID();
+        String okBody = String.format("{\"valid\": true, \"tenantId\": \"%s\", \"role\": \"MEMBER\"}", expectedTenantId);
+
+        mockWebServer.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setResponseCode(200)
+                .setBody(okBody));
+        mockWebServer.enqueue(new MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setResponseCode(401)
+                .setBody("{\"valid\": false, \"errorMessage\": \"Token expired\"}"));
+
+        // 1. At t=0, validated via IAM and cached
+        StepVerifier.create(client.validateBearerToken(jwt))
+                .expectNext(expectedTenantId)
+                .verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount());
+
+        // 2. At t=+5s (before exp=+10s), served from cache
+        currentTime.set(start.plusSeconds(5));
+        StepVerifier.create(client.validateBearerToken(jwt))
+                .expectNext(expectedTenantId)
+                .verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount());
+
+        // 3. At t=+10s (at/after exp, well before 300s cache TTL), cache entry must be expired
+        currentTime.set(start.plusSeconds(10));
+        StepVerifier.create(client.validateBearerToken(jwt))
+                .verifyComplete();
+        assertEquals(2, mockWebServer.getRequestCount());
+    }
+
+    private static String buildUnsignedJwtWithExp(long expEpochSeconds) {
+        String header = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("{\"alg\":\"HS256\"}".getBytes(StandardCharsets.UTF_8));
+        String payload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(("{\"sub\":\"user1\",\"exp\":" + expEpochSeconds + "}")
+                        .getBytes(StandardCharsets.UTF_8));
+        return header + "." + payload + ".signature";
     }
 }

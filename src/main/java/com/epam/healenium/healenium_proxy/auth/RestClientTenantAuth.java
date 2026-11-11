@@ -24,7 +24,7 @@ public final class RestClientTenantAuth {
         if (client == null) {
             return;
         }
-//        client.setTenantId(tenantId);
+
         if (StringUtils.hasText(tenantId)) {
             wrap(client, TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
         }
@@ -36,11 +36,14 @@ public final class RestClientTenantAuth {
     }
 
     private static void wrap(RestClient client, String headerName, String headerValue) {
-        HttpClient current = client.getServerHttpClient();
-        if (current == null) {
-            return;
+        HttpClient serverClient = client.getServerHttpClient();
+        if (serverClient != null) {
+            client.setServerHttpClient(new HeaderInjectingHttpClient(serverClient, headerName, headerValue));
         }
-        client.setServerHttpClient(new HeaderInjectingHttpClient(current, headerName, headerValue));
+        HttpClient aiClient = client.getAiServiceHttpClient();
+        if (aiClient != null) {
+            client.setAiServiceHttpClient(new HeaderInjectingHttpClient(aiClient, headerName, headerValue));
+        }
     }
 
     private static final class HeaderInjectingHttpClient implements HttpClient {
