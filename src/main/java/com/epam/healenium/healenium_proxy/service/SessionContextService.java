@@ -18,8 +18,6 @@ import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.epam.healenium.SelfHealingDriver.callInitActions;
-
 import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueFactory;
@@ -38,18 +36,18 @@ public class SessionContextService {
     private final RestoreDriverFactory restoreDriverFactory;
     private final ProxyConfig proxyConfig;
     private final JsonMapper jsonMapper;
-    private final TenantSettingsClient tenantSettingsClient;
+    private final SettingsClient settingsClient;
 
     public SessionContextService(RestoreDriverFactory restoreDriverFactory, ProxyConfig proxyConfig, JsonMapper jsonMapper) {
         this(restoreDriverFactory, proxyConfig, jsonMapper, null);
     }
 
     @Autowired
-    public SessionContextService(RestoreDriverFactory restoreDriverFactory, ProxyConfig proxyConfig, JsonMapper jsonMapper, @Autowired(required = false) TenantSettingsClient tenantSettingsClient) {
+    public SessionContextService(RestoreDriverFactory restoreDriverFactory, ProxyConfig proxyConfig, JsonMapper jsonMapper, @Autowired(required = false) SettingsClient settingsClient) {
         this.restoreDriverFactory = restoreDriverFactory;
         this.proxyConfig = proxyConfig;
         this.jsonMapper = jsonMapper;
-        this.tenantSettingsClient = tenantSettingsClient;
+        this.settingsClient = settingsClient;
     }
 
     public ProxySessionContext initSessionContext(String createSessionResponseBody) {
@@ -101,9 +99,9 @@ public class SessionContextService {
 
         // Level 2: Tenant Settings from Backend (cached)
         String tenantId = sessionContext.getTenantId();
-        if (tenantSettingsClient != null && StringUtils.hasText(tenantId)) {
+        if (settingsClient != null && StringUtils.hasText(tenantId)) {
             try {
-                TenantSettingsDto tenantSettings = tenantSettingsClient.getSettings(tenantId);
+                TenantSettingsDto tenantSettings = settingsClient.getSettings(tenantId);
                 if (tenantSettings != null) {
                     if (tenantSettings.getHealEnabled() != null) {
                         sessionConfig = sessionConfig.withValue("heal-enabled", ConfigValueFactory.fromAnyRef(tenantSettings.getHealEnabled()));

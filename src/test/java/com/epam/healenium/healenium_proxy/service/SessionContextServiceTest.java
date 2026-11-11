@@ -33,7 +33,7 @@ class SessionContextServiceTest {
     private JsonMapper jsonMapper;
 
     @Mock
-    private TenantSettingsClient tenantSettingsClient;
+    private SettingsClient settingsClient;
 
     private SessionContextService service;
 
@@ -42,7 +42,7 @@ class SessionContextServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new SessionContextService(restoreDriverFactory, proxyConfig, jsonMapper, tenantSettingsClient);
+        service = new SessionContextService(restoreDriverFactory, proxyConfig, jsonMapper, settingsClient);
 
         Config baseConfig = ConfigFactory.empty()
                 .withValue("heal-enabled", com.typesafe.config.ConfigValueFactory.fromAnyRef(true))
@@ -73,7 +73,7 @@ class SessionContextServiceTest {
                 .setScoreCap(0.80)
                 .setHealedType("xpath");
 
-        when(tenantSettingsClient.getSettings(tenantId)).thenReturn(tenantDto);
+        when(settingsClient.getSettings(tenantId)).thenReturn(tenantDto);
 
         ProxySessionContext context = new ProxySessionContext().setTenantId(tenantId);
 
@@ -93,7 +93,7 @@ class SessionContextServiceTest {
                 .setScoreCap(0.70)
                 .setHealedType("css");
 
-        when(tenantSettingsClient.getSettings(tenantId)).thenReturn(tenantDto);
+        when(settingsClient.getSettings(tenantId)).thenReturn(tenantDto);
 
         Map<String, Object> caps = new HashMap<>();
         caps.put("hlm:healEnabled", false);

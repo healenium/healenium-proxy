@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j(topic = "healenium")
 @Service
 @RequiredArgsConstructor
-public class TenantSettingsClient {
+public class SettingsClient {
 
     private final HealeniumRestService restService;
     private final HealeniumAuthProperties authProperties;

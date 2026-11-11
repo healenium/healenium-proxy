@@ -40,7 +40,7 @@ public class SettingsService {
     private final HealeniumRestService restService;
 
     @Autowired(required = false)
-    private TenantSettingsClient tenantSettingsClient;
+    private SettingsClient settingsClient;
 
     /**
      * Settings of the default tenant (anonymous user): healing values from {@link ProxyConfig},
@@ -82,7 +82,7 @@ public class SettingsService {
         if (isAnonymous(tenantId)) {
             return getAllSettings(tenantId);
         }
-        return tenantSettingsClient.getSettingsReactive(tenantId)
+        return settingsClient.getSettingsReactive(tenantId)
                 .map(ts -> {
                     Config config = proxyConfig.getConfig();
                     String healedType = ts.getHealedType() != null ? ts.getHealedType() : "css";
@@ -109,7 +109,7 @@ public class SettingsService {
      * No tenant, or the default tenant: changes go to in-memory defaults only, never to a tenant's row.
      */
     public boolean isAnonymous(String tenantId) {
-        return tenantSettingsClient == null || tenantSettingsClient.isDefaultTenant(tenantId);
+        return settingsClient == null || settingsClient.isDefaultTenant(tenantId);
     }
 
     /**
@@ -201,7 +201,7 @@ public class SettingsService {
                     );
             return;
         }
-        tenantSettingsClient.updateSettings(tenantId, dto)
+        settingsClient.updateSettings(tenantId, dto)
                 .flatMap(saved -> isPlaywrightPlatform()
                         ? restService.invalidatePlaywrightTenantSettings(tenantId).thenReturn(saved)
                         : Mono.just(saved))

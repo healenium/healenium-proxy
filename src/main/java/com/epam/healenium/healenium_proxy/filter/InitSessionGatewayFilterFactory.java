@@ -27,7 +27,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
-import com.epam.healenium.healenium_proxy.service.TenantSettingsClient;
+import com.epam.healenium.healenium_proxy.service.SettingsClient;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.nio.charset.StandardCharsets;
@@ -48,7 +48,7 @@ public class InitSessionGatewayFilterFactory
     private final SessionContextService sessionContextService;
     private final HealeniumAuthProperties properties;
     private final IamAuthClient iamAuthClient;
-    private final TenantSettingsClient tenantSettingsClient;
+    private final SettingsClient settingsClient;
 
     @Autowired
     public InitSessionGatewayFilterFactory(
@@ -56,13 +56,13 @@ public class InitSessionGatewayFilterFactory
             SessionContextService sessionContextService,
             HealeniumAuthProperties properties,
             IamAuthClient iamAuthClient,
-            @Autowired(required = false) TenantSettingsClient tenantSettingsClient) {
+            @Autowired(required = false) SettingsClient settingsClient) {
         super(Config.class);
         this.modifyResponseBodyFilterFactory = modifyResponseBodyFilterFactory;
         this.sessionContextService = sessionContextService;
         this.properties = properties;
         this.iamAuthClient = iamAuthClient;
-        this.tenantSettingsClient = tenantSettingsClient;
+        this.settingsClient = settingsClient;
     }
 
     public InitSessionGatewayFilterFactory(
@@ -163,8 +163,8 @@ public class InitSessionGatewayFilterFactory
 
             proxySessionContext.setTenantId(tenantId);
             
-            Mono<TenantSettingsDto> settingsMono = (tenantSettingsClient != null && StringUtils.hasText(tenantId))
-                    ? tenantSettingsClient.getSettingsReactive(tenantId)
+            Mono<TenantSettingsDto> settingsMono = (settingsClient != null && StringUtils.hasText(tenantId))
+                    ? settingsClient.getSettingsReactive(tenantId)
                     : Mono.empty();
 
             return settingsMono
