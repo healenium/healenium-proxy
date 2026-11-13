@@ -1,10 +1,11 @@
-FROM eclipse-temurin:23
+FROM eclipse-temurin:21-jre-alpine
 
 LABEL maintainer="healenium"
 
 ENV JAR=app.jar
 ENV EXECUTABLE=run.sh
 
+RUN apk upgrade --no-cache
 WORKDIR /
 
 COPY /target/hlm-proxy-*.jar /${JAR}
