@@ -14,9 +14,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.net.URL;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
 
 @Slf4j(topic = "healenium")
 @Service
@@ -28,12 +30,13 @@ public class HealeniumRestService {
     private static final String HEALENIUM_SESSION_INIT_PATH = "/healenium/session";
     private static final String SELENIUM_HEALTH_CHECK_URI = "/status";
     private static final String BACKEND_SETTINGS_UPDATE_URI = "/healenium/settings/update";
+    private static final String TENANT_SETTINGS_URI = "/healenium/settings";
     private static final String AI_SETTINGS_UPDATE_URI = "/healenium-ai/settings/update";
     private static final String BACKEND_LOGS_TIME_RANGE_URI = "/healenium/logs/time-range";
     private static final String BACKEND_LOGS_SESSION_URI = "/healenium/logs/session/{sessionId}";
     private static final String AI_LOGS_SESSION_URI = "/healenium-ai/logs/session/{sessionId}";
     private static final String PLAYWRIGHT_LOGS_SESSION_URI = "/hlm-playwright-proxy/logs/session/{sessionId}";
-    private static final String PLAYWRIGHT_SETTINGS_GET_URI = "/hlm-playwright-proxy/settings";
+    private static final String PLAYWRIGHT_SETTINGS_CACHE_INVALIDATE_URI = "/hlm-playwright-proxy/settings/cache/invalidate";
     private static final String PLAYWRIGHT_SETTINGS_UPDATE_URI = "/hlm-playwright-proxy/settings/update";
 
     @Value("${proxy.healenium.container.url}")
@@ -48,35 +51,21 @@ public class HealeniumRestService {
     @Value("${proxy.playwright.container.url}")
     private String playwrightServiceUrl;
 
-    @Value("${healenium.m2m.internal-token:}")
-    private String internalToken;
-
     private WebClient.Builder backendClient(String tenantId) {
         return backendClient(tenantId, false);
     }
 
     private WebClient.Builder backendClient(String tenantId, boolean largeBuffer) {
-        requireTenantWhenM2m(tenantId);
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(healeniumContainerUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         if (largeBuffer) {
             builder.codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_LOG_BUFFER_SIZE));
         }
-        if (StringUtils.hasText(internalToken)) {
-            builder.defaultHeader(TenantAuthGlobalFilter.INTERNAL_TOKEN_HEADER, internalToken);
-        }
         if (StringUtils.hasText(tenantId)) {
             builder.defaultHeader(TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
         }
         return builder;
-    }
-
-    private void requireTenantWhenM2m(String tenantId) {
-        if (StringUtils.hasText(internalToken) && !StringUtils.hasText(tenantId)) {
-            throw new IllegalArgumentException(
-                    "Healenium-Tenant-Id is required when M2M internal token is configured");
-        }
     }
 
     private <T> Mono<T> backendCall(String tenantId, java.util.function.Supplier<Mono<T>> call) {
@@ -273,29 +262,30 @@ public class HealeniumRestService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .onErrorResume(e -> {
-                    log.error("Error retrieving Playwright Proxy logs: {}", e.getMessage(), e);
-                    return Mono.just("Error retrieving Playwright Proxy logs: " + e.getMessage());
+                    log.debug("Playwright proxy logs unavailable: {}", e.getMessage());
+                    return Mono.just("Playwright proxy logs unavailable: " + e.getMessage());
                 });
     }
 
     /**
-     * Get all settings from the playwright-proxy service
+     * Evict a tenant's cached settings in the playwright-proxy service
      */
-    public Mono<Map<String, Object>> getPlaywrightSettings() {
+    public Mono<Map<String, Object>> invalidatePlaywrightTenantSettings(String tenantId) {
         return WebClient.builder()
                 .baseUrl(playwrightServiceUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build()
-                .get()
-                .uri(PLAYWRIGHT_SETTINGS_GET_URI)
+                .post()
+                .uri(PLAYWRIGHT_SETTINGS_CACHE_INVALIDATE_URI)
+                .header(TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
                 .onErrorResume(e -> {
-                    log.error("Error retrieving playwright-proxy settings: {}", e.getMessage(), e);
+                    log.warn("Could not invalidate playwright-proxy settings cache for tenant {}: {}", tenantId, e.getMessage());
                     return Mono.just(Map.of(
                             "status", "error",
-                            "message", "Error retrieving playwright-proxy settings: " + e.getMessage()
+                            "message", "Error invalidating playwright-proxy settings cache: " + e.getMessage()
                     ));
                 });
     }
@@ -320,11 +310,44 @@ public class HealeniumRestService {
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
                 .onErrorResume(e -> {
-                    log.error("Error updating playwright-proxy setting: {}", e.getMessage(), e);
+                    log.debug("Error updating playwright-proxy setting: {}", e.getMessage());
                     return Mono.just(Map.of(
                             "status", "error",
                             "message", "Error updating playwright-proxy setting: " + e.getMessage()
                     ));
                 });
+    }
+
+    /**
+     * Get settings for a specific tenant from healenium-backend
+     */
+    public Mono<TenantSettingsDto> getTenantSettings(String tenantId) {
+        return backendCall(tenantId, () -> backendClient(tenantId).build()
+                .get()
+                .uri(TENANT_SETTINGS_URI)
+                .retrieve()
+                .bodyToMono(TenantSettingsDto.class)
+                .timeout(Duration.ofSeconds(3))
+                .onErrorResume(e -> {
+                    log.debug("Error fetching tenant settings from backend for tenant {}: {}", tenantId, e.getMessage());
+                    return Mono.empty();
+                }));
+    }
+
+    /**
+     * Update settings for a specific tenant in healenium-backend
+     */
+    public Mono<TenantSettingsDto> updateTenantSettings(String tenantId, TenantSettingsDto dto) {
+        return backendCall(tenantId, () -> backendClient(tenantId).build()
+                .put()
+                .uri(TENANT_SETTINGS_URI)
+                .bodyValue(dto)
+                .retrieve()
+                .bodyToMono(TenantSettingsDto.class)
+                .timeout(Duration.ofSeconds(5))
+                .onErrorResume(e -> {
+                    log.warn("Error updating tenant settings in backend for tenant {}: {}", tenantId, e.getMessage());
+                    return Mono.empty();
+                }));
     }
 }

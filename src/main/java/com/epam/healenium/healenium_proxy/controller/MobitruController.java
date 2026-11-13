@@ -17,7 +17,7 @@ import java.util.Map;
  * Restore real healing wiring when Mobitru integration is ready.
  */
 @Slf4j
-@CrossOrigin(origins = {"http://localhost:5173"})
+@CrossOrigin(originPatterns = "*")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/proxy")

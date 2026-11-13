@@ -20,26 +20,30 @@ public final class RestClientTenantAuth {
     private RestClientTenantAuth() {
     }
 
-    public static void apply(RestClient client, String tenantId, String internalToken) {
+    public static void apply(RestClient client, String tenantId) {
         if (client == null) {
             return;
         }
-        // healenium-web RestClient still sets legacy X-Tenant-Id via setTenantId; also inject RFC6648 name.
-        client.setTenantId(tenantId);
+
         if (StringUtils.hasText(tenantId)) {
             wrap(client, TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
         }
-        if (StringUtils.hasText(internalToken)) {
-            wrap(client, TenantAuthGlobalFilter.INTERNAL_TOKEN_HEADER, internalToken.trim());
-        }
+    }
+
+    @Deprecated
+    public static void apply(RestClient client, String tenantId, String internalToken) {
+        apply(client, tenantId);
     }
 
     private static void wrap(RestClient client, String headerName, String headerValue) {
-        HttpClient current = client.getServerHttpClient();
-        if (current == null) {
-            return;
+        HttpClient serverClient = client.getServerHttpClient();
+        if (serverClient != null) {
+            client.setServerHttpClient(new HeaderInjectingHttpClient(serverClient, headerName, headerValue));
         }
-        client.setServerHttpClient(new HeaderInjectingHttpClient(current, headerName, headerValue));
+        HttpClient aiClient = client.getAiServiceHttpClient();
+        if (aiClient != null) {
+            client.setAiServiceHttpClient(new HeaderInjectingHttpClient(aiClient, headerName, headerValue));
+        }
     }
 
     private static final class HeaderInjectingHttpClient implements HttpClient {

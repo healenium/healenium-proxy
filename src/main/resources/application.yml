@@ -2,6 +2,9 @@ server:
   port: ${SPRING_SERVER_PORT:8085}
   # Enable forwarded headers Spring Boot for link generation
   forward-headers-strategy: framework
+  max-http-request-header-size: ${SERVER_MAX_HTTP_REQUEST_HEADER_SIZE:64KB}
+  netty:
+    max-initial-line-length: 16KB
 
 proxy:
   test:
@@ -9,13 +12,9 @@ proxy:
     platform: ${TEST_PLATFORM:selenium}
   selenium:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
-#    url: ${SELENIUM_SERVER_URL:https://healenium:mobitru_ak_inyL1yfB81HAIZATY8Leuu_Z96wGcc8Eya9h0sTN62KOyv6zwKL7H45cCOHLxCa7wYbnnHEf99A7zsib1Sl@browserhub-us.mobitru.com/wd/hub}
-    basic-auth: "aGVhbGVuaXVtOm1vYml0cnVfYWtfaW55TDF5ZkI4MUhBSVpBVFk4TGV1dV9aOTZ3R2NjOEV5YTloMHNUTjYyS095djZ6d0tMN0g0NWNDT0hMeENhN3dZYm5uSEVmOTlBN3pzaWIxU2w="
   healenium:
     container:
-      url: ${HEALENIUM_SERVICE:http://localhost:7878}
-    server:
-      url: ${HEALENIUM_SERVER_URL:http://localhost:7878}
+      url: ${HEALENIUM_CONTAINER_URL:${HEALENIUM_SERVICE:${HEALENIUM_SERVER_URL:http://localhost:7878}}}
   imitate:
     container:
       url: ${IMITATE_SERVICE:http://localhost:8000}
@@ -25,6 +24,10 @@ proxy:
   playwright:
     container:
       url: ${PLAYWRIGHT_PROXY_SERVICE:http://localhost:8095}
+  iam:
+    url: ${HEALENIUM_IAM_URL:http://healenium-iam:7070}
+    cache-ttl-seconds: ${IAM_CACHE_TTL_SECONDS:300}
+    cache-max-size: ${IAM_CACHE_MAX_SIZE:10000}
 
 spring:
   banner:
@@ -33,14 +36,21 @@ spring:
     enabled: false
   cloud:
     gateway:
+      httpclient:
+        max-header-size: 64KB
+        max-initial-line-length: 16KB
       server:
         webflux:
+          httpclient:
+            max-header-size: 64KB
+            max-initial-line-length: 16KB
           globalcors:
             cors-configurations:
               '[/**]':
-                allowedOrigins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
+                allowedOriginPatterns: "${CORS_ALLOWED_ORIGIN_PATTERNS:*}"
                 allowedMethods: "*"
                 allowedHeaders: "*"
+                allowCredentials: true
                 maxAge: 3600
           routes:
             - id: selenium_session
@@ -94,11 +104,13 @@ spring:
                 - StripPrefix=1
                 - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
 
-            # Local proxy controllers (/me, settings, logs) — before catch-all Selenium fallback
-            - id: hlm_proxy_local
-              uri: http://localhost:${server.port}
+            # Route /hlm-proxy/me to IAM /v1/users/me (SettingsController, LogController, LogoutController are WebFlux local controllers)
+            - id: hlm_proxy_me
+              uri: ${proxy.iam.url}
               predicates:
-                - Path=/hlm-proxy/**
+                - Path=/hlm-proxy/me
+              filters:
+                - RewritePath=/hlm-proxy/me, /v1/users/me
 
             - id: healenium_actuator
               uri: ${proxy.healenium.container.url}
@@ -121,18 +133,12 @@ spring:
                 response-timeout: 600000
                 connect-timeout: 10000
 
-            - id: playwright_proxy_actuator
-              uri: ${proxy.playwright.container.url}
+            - id: healenium_iam
+              uri: ${proxy.iam.url}
               predicates:
-                - Path=/hlm-playwright-proxy/actuator/**
+                - Path=/iam/**
               filters:
-                - StripPrefix=1
-                - AddRequestHeader=X-Forwarded-Prefix, /hlm-playwright-proxy
-
-            - id: playwright_proxy
-              uri: ${proxy.playwright.container.url}
-              predicates:
-                - Path=/hlm-playwright-proxy/**
+                - RewritePath=/iam/(?<segment>.*), /v1/$\{segment}
 
             - id: fallback_route
               uri: ${proxy.selenium.url}
@@ -147,17 +153,9 @@ healing:
 
 healenium:
   auth:
-    # When true, Cognito JWT is required for /healenium/** and /hlm-proxy/me
+    # When true, IAM auth is required for /healenium/** and /hlm-proxy/**
     enabled: ${HEALENIUM_AUTH_ENABLED:false}
-    cognito-domain: ${COGNITO_DOMAIN:}
-    client-id: ${COGNITO_CLIENT_ID:}
-    logout-uri: ${COGNITO_LOGOUT_URI:}
-    default-tenant-id: ${DEFAULT_TENANT_ID:}
-  m2m:
-    internal-token: ${M2M_INTERNAL_TOKEN:}
-  membership:
-    cache-ttl: PT5M
-    cache-max-size: 10000
+    logout-uri: ${LOGOUT_URI:}
 
 logging:
   level:

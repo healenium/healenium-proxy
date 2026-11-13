@@ -4,14 +4,12 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ProxyConfig {
 
-    @Autowired
     private final Environment env;
 
     @Getter
@@ -34,13 +32,24 @@ public class ProxyConfig {
                 .withValue("heal-enabled", ConfigValueFactory.fromAnyRef(env.getProperty("healing.healenabled")))
                 .withValue("recovery-tries", ConfigValueFactory.fromAnyRef(env.getProperty("healing.recoverytries")))
                 .withValue("score-cap", ConfigValueFactory.fromAnyRef(env.getProperty("healing.scorecap")))
-                .withValue("selector-type", ConfigValueFactory.fromAnyRef(env.getProperty("healing.selectortype", "cssSelector")))
+                .withValue("selector-type", ConfigValueFactory.fromAnyRef(env.getProperty("healing.selectortype", "css")))
                 .withValue("log-level", ConfigValueFactory.fromAnyRef(env.getProperty("HLM_LOG_LEVEL", "INFO")))
                 .withValue("backlight-healing", ConfigValueFactory.fromAnyRef(true))
                 .withValue("proxy", ConfigValueFactory.fromAnyRef(true))
                 .withValue("test-platform", ConfigValueFactory.fromAnyRef(env.getProperty("TEST_PLATFORM", "selenium")));
     }
     
+    /**
+     * Check if the configured test platform is PLAYWRIGHT
+     */
+    public boolean isPlaywrightPlatform() {
+        try {
+            return "PLAYWRIGHT".equalsIgnoreCase(config.getString("test-platform"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /**
      * Update configuration value
      * Note: Validation should be performed by the caller before calling this method
