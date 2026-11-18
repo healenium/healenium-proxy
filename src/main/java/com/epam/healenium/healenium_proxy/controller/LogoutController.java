@@ -45,15 +45,9 @@ public class LogoutController {
                     .build());
         }
 
-        String cognitoDomain = authProperties.getAuth().getCognitoDomain();
-        String clientId = authProperties.getAuth().getClientId();
         String logoutUri = resolveLogoutUri(exchange);
-
-        String redirectUrl = cognitoDomain + "/logout?client_id=" + clientId
-                + "&logout_uri=" + URLEncoder.encode(logoutUri, StandardCharsets.UTF_8);
-
         response.setStatusCode(HttpStatus.FOUND);
-        response.getHeaders().setLocation(URI.create(redirectUrl));
+        response.getHeaders().setLocation(URI.create(logoutUri));
         return response.setComplete();
     }
 

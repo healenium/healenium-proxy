@@ -20,16 +20,13 @@ import static com.epam.healenium.SelfHealingDriver.callInitActions;
 @Service
 public class RestoreWebDriver implements RestoreDriver {
 
-    @Value("${healenium.m2m.internal-token:}")
-    private String internalToken;
-
     @Override
     public void restoreSelfHealing(String sessionId, ProxySessionContext proxySessionContext, Config config) {
         RemoteWebDriver restoreWebDriver = restoreWebDriverFromSession(sessionId, proxySessionContext);
         SelfHealingEngine engine = SelfHealingHandlerBuilder.webEngine(restoreWebDriver, config);
         proxySessionContext.setSelfHealingHandlerBase(new BaseHandler(engine));
         proxySessionContext.setSelfHealingHandlerWebElement(new WebElementProxyHandler(engine));
-        RestClientTenantAuth.apply(engine.getClient(), proxySessionContext.getTenantId(), internalToken);
+        RestClientTenantAuth.apply(engine.getClient(), proxySessionContext.getTenantId());
         proxySessionContext.setSelfHealingEngine(engine);
         callInitActions(engine);
     }

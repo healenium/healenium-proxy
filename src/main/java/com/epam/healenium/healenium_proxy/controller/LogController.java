@@ -1,18 +1,21 @@
 package com.epam.healenium.healenium_proxy.controller;
 
-import com.epam.healenium.healenium_proxy.auth.TenantResolver;
+import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
+import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
+import com.epam.healenium.healenium_proxy.config.ProxyConfig;
 import com.epam.healenium.healenium_proxy.model.SessionLogResultDto;
 import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.LogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -21,11 +24,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
-@CrossOrigin(origins = {"http://localhost:5173"})
+@CrossOrigin(originPatterns = "*")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/hlm-proxy/logs")
@@ -35,7 +39,9 @@ public class LogController {
 
     private final HealeniumRestService restService;
     private final LogService logService;
-    private final TenantResolver tenantResolver;
+    private final IamAuthClient iamAuthClient;
+    private final HealeniumAuthProperties properties;
+    private final ProxyConfig proxyConfig;
 
     /**
      * Get logs for a specific session ID
@@ -46,11 +52,10 @@ public class LogController {
     public Mono<ResponseEntity<Map<String, Object>>> getSessionLogs(
             @PathVariable String sessionId,
             ServerWebExchange exchange) {
-        return tenantResolver.resolve(exchange)
+        return IamAuthClient.resolveTenant(exchange, properties, iamAuthClient)
                 .flatMap(tenantId -> fetchSessionLogs(sessionId, tenantId))
-                .onErrorResume(TenantResolver.TenantResolutionException.class, e ->
-                        Mono.just(ResponseEntity.status(e.getStatus())
-                                .body(Map.of("error", e.getMessage()))))
+                .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Tenant not resolved"))))
                 .onErrorResume(e -> {
                     log.error("Error getting logs for session: {}", sessionId, e);
                     return Mono.just(ResponseEntity.internalServerError()
@@ -66,7 +71,11 @@ public class LogController {
                 ? restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime(), tenantId)
                 : restService.getBackendLogsForSession(sessionId, tenantId));
         logSources.put("aiLogs", restService.getAILogsForSession(sessionId));
-        logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
+        if (proxyConfig.isPlaywrightPlatform()) {
+            logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
+        } else {
+            logSources.put("playwrightLogs", Mono.just("No Playwright logs: session was executed on Selenium platform."));
+        }
 
         List<String> keys = List.copyOf(logSources.keySet());
         List<Mono<String>> logSourcesMono = List.copyOf(logSources.values());

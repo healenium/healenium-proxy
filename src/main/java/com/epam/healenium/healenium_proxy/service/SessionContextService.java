@@ -18,7 +18,11 @@ import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.epam.healenium.SelfHealingDriver.callInitActions;
+import com.epam.healenium.healenium_proxy.model.TenantSettingsDto;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValueFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 
 @Slf4j(topic = "healenium")
 @Service
@@ -32,11 +36,18 @@ public class SessionContextService {
     private final RestoreDriverFactory restoreDriverFactory;
     private final ProxyConfig proxyConfig;
     private final JsonMapper jsonMapper;
+    private final SettingsClient settingsClient;
 
     public SessionContextService(RestoreDriverFactory restoreDriverFactory, ProxyConfig proxyConfig, JsonMapper jsonMapper) {
+        this(restoreDriverFactory, proxyConfig, jsonMapper, null);
+    }
+
+    @Autowired
+    public SessionContextService(RestoreDriverFactory restoreDriverFactory, ProxyConfig proxyConfig, JsonMapper jsonMapper, @Autowired(required = false) SettingsClient settingsClient) {
         this.restoreDriverFactory = restoreDriverFactory;
         this.proxyConfig = proxyConfig;
         this.jsonMapper = jsonMapper;
+        this.settingsClient = settingsClient;
     }
 
     public ProxySessionContext initSessionContext(String createSessionResponseBody) {
@@ -78,7 +89,80 @@ public class SessionContextService {
 
     public void fillRestoreSelfHealingHandlers(String currentSessionId, ProxySessionContext sessionContext) {
         RestoreDriver restoreDriver = restoreDriverFactory.getRestoreService(sessionContext.getCapabilities());
-        restoreDriver.restoreSelfHealing(currentSessionId, sessionContext, proxyConfig.getConfig(currentSessionId));
+        Config sessionConfig = buildSessionConfig(currentSessionId, sessionContext);
+        restoreDriver.restoreSelfHealing(currentSessionId, sessionContext, sessionConfig);
+    }
+
+    public Config buildSessionConfig(String currentSessionId, ProxySessionContext sessionContext) {
+        // Level 1: Global system defaults from ProxyConfig
+        Config sessionConfig = proxyConfig.getConfig(currentSessionId);
+
+        // Level 2: Tenant Settings from Backend (cached)
+        String tenantId = sessionContext.getTenantId();
+        if (settingsClient != null && StringUtils.hasText(tenantId)) {
+            try {
+                TenantSettingsDto tenantSettings = settingsClient.getSettings(tenantId);
+                if (tenantSettings != null) {
+                    if (tenantSettings.getHealEnabled() != null) {
+                        sessionConfig = sessionConfig.withValue("heal-enabled", ConfigValueFactory.fromAnyRef(tenantSettings.getHealEnabled()));
+                    }
+                    if (tenantSettings.getRecoveryTries() != null) {
+                        sessionConfig = sessionConfig.withValue("recovery-tries", ConfigValueFactory.fromAnyRef(tenantSettings.getRecoveryTries()));
+                    }
+                    if (tenantSettings.getScoreCap() != null) {
+                        sessionConfig = sessionConfig.withValue("score-cap", ConfigValueFactory.fromAnyRef(tenantSettings.getScoreCap()));
+                    }
+                    if (StringUtils.hasText(tenantSettings.getHealedType())) {
+                        String selectorType = "xpath".equalsIgnoreCase(tenantSettings.getHealedType()) ? "xpath" : "css";
+                        sessionConfig = sessionConfig.withValue("selector-type", ConfigValueFactory.fromAnyRef(selectorType));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[Proxy] Failed to load tenant settings for {}, using defaults: {}", tenantId, e.getMessage());
+            }
+        }
+
+        // Level 3: Session Capabilities Overrides (per-run)
+        Map<String, Object> caps = sessionContext.getCapabilities();
+        if (caps != null) {
+            Object healEnabled = getCapabilityValue(caps, "hlm:healEnabled", "hlm:heal-enabled");
+            if (healEnabled != null) {
+                log.debug("CapabilityValue healEnabled {}", healEnabled);
+                sessionConfig = sessionConfig.withValue("heal-enabled", ConfigValueFactory.fromAnyRef(Boolean.parseBoolean(healEnabled.toString())));
+            }
+            Object recoveryTries = getCapabilityValue(caps, "hlm:recoveryTries", "hlm:recovery-tries");
+            if (recoveryTries != null) {
+                log.debug("CapabilityValue recoveryTries {}", recoveryTries);
+                try {
+                    sessionConfig = sessionConfig.withValue("recovery-tries", ConfigValueFactory.fromAnyRef(Integer.parseInt(recoveryTries.toString())));
+                } catch (NumberFormatException ignored) {}
+            }
+            Object scoreCap = getCapabilityValue(caps, "hlm:scoreCap", "hlm:score-cap");
+            if (scoreCap != null) {
+                log.debug("CapabilityValue scoreCap {}", scoreCap);
+                try {
+                    sessionConfig = sessionConfig.withValue("score-cap", ConfigValueFactory.fromAnyRef(Double.parseDouble(scoreCap.toString())));
+                } catch (NumberFormatException ignored) {}
+            }
+            Object healedType = getCapabilityValue(caps, "hlm:healedType", "hlm:healed-type", "hlm:selectorType", "hlm:selector-type");
+            if (healedType != null) {
+                log.debug("CapabilityValue healedType {}", healedType);
+                String typeStr = healedType.toString();
+                String selectorType = "xpath".equalsIgnoreCase(typeStr) ? "xpath" : "css";
+                sessionConfig = sessionConfig.withValue("selector-type", ConfigValueFactory.fromAnyRef(selectorType));
+            }
+        }
+
+        return sessionConfig;
+    }
+
+    private Object getCapabilityValue(Map<String, Object> caps, String... keys) {
+        for (String key : keys) {
+            if (caps.containsKey(key)) {
+                return caps.get(key);
+            }
+        }
+        return null;
     }
 
     public String submitSessionContext(String responseData, ProxySessionContext sessionContext) {
