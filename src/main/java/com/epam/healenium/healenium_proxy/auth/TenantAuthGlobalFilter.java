@@ -87,15 +87,6 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                     .then();
         }
 
-        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
-            try {
-                UUID fallbackTenant = UUID.fromString(properties.getAuth().getDefaultTenantId().trim());
-                return forwardToIam(exchange, chain, fallbackTenant, null);
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid defaultTenantId configured: {}", properties.getAuth().getDefaultTenantId());
-            }
-        }
-
         return rejectUnauthorized(exchange, "Missing or invalid Bearer token for IAM path: " + path).then();
     }
 
@@ -118,16 +109,7 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                     .then();
         }
 
-        // 3. Fallback to defaultTenantId if configured (single-tenant / local development mode)
-        if (StringUtils.hasText(properties.getAuth().getDefaultTenantId())) {
-            try {
-                UUID fallbackTenant = UUID.fromString(properties.getAuth().getDefaultTenantId().trim());
-                return forwardWithTenant(exchange, chain, fallbackTenant);
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid defaultTenantId configured: {}", properties.getAuth().getDefaultTenantId());
-            }
-        }
-
+        // 3. No credential: reject. The default tenant is for Community mode only (auth disabled).
         log.warn("Missing or invalid authentication credentials for path: {}", path);
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         return exchange.getResponse().setComplete();
@@ -140,10 +122,7 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                     headers.remove(TENANT_HEADER);
                     headers.remove("X-Tenant-Id");
                     headers.set(TENANT_HEADER, tenantId.toString());
-                    headers.set("X-Tenant-Id", tenantId.toString());
-                    if (StringUtils.hasText(token)) {
-                        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-                    }
+                    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 })
                 .build();
         return chain.filter(exchange.mutate().request(mutatedRequest).build());

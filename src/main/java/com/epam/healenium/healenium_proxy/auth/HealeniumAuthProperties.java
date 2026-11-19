@@ -23,7 +23,8 @@ public class HealeniumAuthProperties {
         /** Post-logout redirect URI */
         private String logoutUri = "";
         /**
-         * Anonymous tenant id. Requests with no tenant use this value.
+         * Tenant used for every request when auth is disabled (Community mode). It is not a fallback
+         * for unauthenticated requests: with auth enabled, a request without a valid credential is rejected.
          */
         private String defaultTenantId = "00000000-0000-0000-0000-000000000001";
     }
