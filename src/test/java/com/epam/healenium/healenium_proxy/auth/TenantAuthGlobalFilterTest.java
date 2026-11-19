@@ -90,8 +90,9 @@ class TenantAuthGlobalFilterTest {
             StepVerifier.create(filter.filter(exchange, chain))
                     .verifyComplete();
 
-            verify(chain).filter(exchange);
         }
+        // The filter forwards a mutated exchange (sanitized headers), so match any exchange.
+        verify(chain, times(2)).filter(any());
         verifyNoInteractions(iamAuthClient);
     }
 
@@ -358,8 +359,26 @@ class TenantAuthGlobalFilterTest {
         ServerWebExchange downstreamExchange = captor.getValue();
         HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
 
-        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("X-Tenant-Id"));
+        // Only the trusted Healenium-Tenant-Id identifies the tenant; the client-sent X-Tenant-Id is dropped.
+        assertNull(downstreamHeaders.getFirst("X-Tenant-Id"));
         assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
         assertEquals("Bearer valid_token", downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
+    }
+
+    @Test
+    void testProtectedIamPathMissingTokenRejectsEvenWhenDefaultTenantIdIsSet() {
+        properties.getAuth().setEnabled(true);
+        properties.getAuth().setDefaultTenantId(UUID.randomUUID().toString());
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/api-keys")
+                .header("Healenium-Tenant-Id", "forged-tenant")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(filter.filter(exchange, chain))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(chain);
     }
 }
