@@ -20,8 +20,6 @@ public class HealeniumAuthProperties {
          * WebDriver paths stay permitAll.
          */
         private boolean enabled = false;
-        /** Post-logout redirect URI */
-        private String logoutUri = "";
         /**
          * Tenant used for every request when auth is disabled (Community mode). It is not a fallback
          * for unauthenticated requests: with auth enabled, a request without a valid credential is rejected.

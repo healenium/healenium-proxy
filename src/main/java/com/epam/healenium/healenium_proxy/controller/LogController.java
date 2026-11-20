@@ -1,35 +1,28 @@
 package com.epam.healenium.healenium_proxy.controller;
 
-import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
-import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
-import com.epam.healenium.healenium_proxy.config.ProxyConfig;
 import com.epam.healenium.healenium_proxy.model.SessionLogResultDto;
-import com.epam.healenium.healenium_proxy.rest.HealeniumRestService;
 import com.epam.healenium.healenium_proxy.service.LogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-@Slf4j
-@CrossOrigin(originPatterns = "*")
+/**
+ * This proxy's own session log lines, for hlm-iam's session-log view (spec 004, Requirement 3.6).
+ * Timestamps are returned as {@code yyyy-MM-dd HH:mm:ss.SSS} text, or null.
+ */
+@Slf4j(topic = "healenium")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/hlm-proxy/logs")
@@ -37,111 +30,29 @@ public class LogController {
 
     private static final DateTimeFormatter LOG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
-    private final HealeniumRestService restService;
     private final LogService logService;
-    private final IamAuthClient iamAuthClient;
-    private final HealeniumAuthProperties properties;
-    private final ProxyConfig proxyConfig;
 
-    /**
-     * Get logs for a specific session ID
-     * @param sessionId The session ID to get logs for
-     * @return Mono<ResponseEntity> containing the session logs
-     */
     @GetMapping("/session/{sessionId}")
-    public Mono<ResponseEntity<Map<String, Object>>> getSessionLogs(
-            @PathVariable String sessionId,
-            ServerWebExchange exchange) {
-        return IamAuthClient.resolveTenant(exchange, properties, iamAuthClient)
-                .flatMap(tenantId -> fetchSessionLogs(sessionId, tenantId))
-                .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Tenant not resolved"))))
+    public Mono<ResponseEntity<Map<String, Object>>> getSessionLogs(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> logService.getLogsForSession(sessionId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .map(result -> ResponseEntity.ok(body(result)))
                 .onErrorResume(e -> {
-                    log.error("Error getting logs for session: {}", sessionId, e);
-                    return Mono.just(ResponseEntity.internalServerError()
-                            .body(Map.of("error", e.getMessage())));
+                    log.error("Error getting proxy logs for session: {}", sessionId, e);
+                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of("error", String.valueOf(e.getMessage()))));
                 });
     }
 
-    private Mono<ResponseEntity<Map<String, Object>>> fetchSessionLogs(String sessionId, String tenantId) {
-        SessionLogResultDto logResult = logService.getLogsForSession(sessionId);
-
-        Map<String, Mono<String>> logSources = new LinkedHashMap<>();
-        logSources.put("backendLogs", (logResult.getStartTime() != null && logResult.getEndTime() != null)
-                ? restService.getBackendLogsForTimeRange(logResult.getStartTime(), logResult.getEndTime(), tenantId)
-                : restService.getBackendLogsForSession(sessionId, tenantId));
-        logSources.put("aiLogs", restService.getAILogsForSession(sessionId));
-        if (proxyConfig.isPlaywrightPlatform()) {
-            logSources.put("playwrightLogs", restService.getPlaywrightLogsForSession(sessionId));
-        } else {
-            logSources.put("playwrightLogs", Mono.just("No Playwright logs: session was executed on Selenium platform."));
-        }
-
-        List<String> keys = List.copyOf(logSources.keySet());
-        List<Mono<String>> logSourcesMono = List.copyOf(logSources.values());
-
-        return Mono.zip(logSourcesMono, logs -> {
-            Map<String, Object> result = new HashMap<>();
-            result.put("sessionId", sessionId);
-            result.put("proxyLogs", logResult.getLogs());
-
-            String[] timestamps = resolveTimestamps(logResult, (String) logs[2]);
-            result.put("startTime", timestamps[0]);
-            result.put("endTime", timestamps[1]);
-
-            for (int i = 0; i < keys.size(); i++) {
-                result.put(keys.get(i), logs[i]);
-            }
-            return ResponseEntity.ok(result);
-        });
+    private static Map<String, Object> body(SessionLogResultDto result) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("logs", result.getLogs());
+        body.put("startTime", format(result.getStartTime()));
+        body.put("endTime", format(result.getEndTime()));
+        return body;
     }
 
-    private String[] resolveTimestamps(SessionLogResultDto logResult, String playwrightLogs) {
-        if (logResult.getStartTime() != null && logResult.getEndTime() != null) {
-            return new String[]{
-                    logResult.getStartTime().format(LOG_DATE_FORMAT),
-                    logResult.getEndTime().format(LOG_DATE_FORMAT)
-            };
-        }
-        LocalDateTime[] times = extractTimestampsFromLogs(playwrightLogs);
-        return new String[]{
-                times[0] != null ? times[0].format(LOG_DATE_FORMAT) : null,
-                times[1] != null ? times[1].format(LOG_DATE_FORMAT) : null
-        };
-    }
-
-    private LocalDateTime[] extractTimestampsFromLogs(String logContent) {
-        if (logContent == null || logContent.isEmpty()) {
-            return new LocalDateTime[]{null, null};
-        }
-
-        Pattern timestampPattern = Pattern.compile("(\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3})");
-        String[] lines = logContent.split("\n");
-        LocalDateTime startTime = null;
-        LocalDateTime endTime = null;
-
-        for (String line : lines) {
-            Matcher matcher = timestampPattern.matcher(line);
-            if (matcher.find()) {
-                try {
-                    startTime = LocalDateTime.parse(matcher.group(1), LOG_DATE_FORMAT);
-                    break;
-                } catch (Exception ignored) {
-                }
-            }
-        }
-
-        for (int i = lines.length - 1; i >= 0; i--) {
-            Matcher matcher = timestampPattern.matcher(lines[i]);
-            if (matcher.find()) {
-                try {
-                    endTime = LocalDateTime.parse(matcher.group(1), LOG_DATE_FORMAT);
-                    break;
-                } catch (Exception ignored) {
-                }
-            }
-        }
-
-        return new LocalDateTime[]{startTime, endTime};
+    private static String format(LocalDateTime time) {
+        return time == null ? null : time.format(LOG_DATE_FORMAT);
     }
 }

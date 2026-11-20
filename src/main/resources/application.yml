@@ -96,30 +96,6 @@ spring:
               filters:
                 - name: ExecuteScript
 
-            - id: hlm_proxy_actuator
-              uri: http://localhost:${server.port}
-              predicates:
-                - Path=/hlm-proxy/actuator,/hlm-proxy/actuator/**
-              filters:
-                - StripPrefix=1
-                - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
-
-            # Route /hlm-proxy/me to IAM /v1/users/me (SettingsController, LogController, LogoutController are WebFlux local controllers)
-            - id: hlm_proxy_me
-              uri: ${proxy.iam.url}
-              predicates:
-                - Path=/hlm-proxy/me
-              filters:
-                - RewritePath=/hlm-proxy/me, /v1/users/me
-
-            - id: healenium_actuator
-              uri: ${proxy.healenium.container.url}
-              predicates:
-                - Path=/healenium/actuator/**
-              filters:
-                - StripPrefix=1
-                - AddRequestHeader=X-Forwarded-Prefix, /healenium
-
             - id: healenium_backend
               uri: ${proxy.healenium.container.url}
               predicates:
@@ -132,13 +108,6 @@ spring:
               metadata:
                 response-timeout: 600000
                 connect-timeout: 10000
-
-            - id: healenium_iam
-              uri: ${proxy.iam.url}
-              predicates:
-                - Path=/iam/**
-              filters:
-                - RewritePath=/iam/(?<segment>.*), /v1/$\{segment}
 
             - id: fallback_route
               uri: ${proxy.selenium.url}
@@ -155,7 +124,6 @@ healenium:
   auth:
     # When true, IAM auth is required for /healenium/** and /hlm-proxy/**
     enabled: ${HEALENIUM_AUTH_ENABLED:false}
-    logout-uri: ${LOGOUT_URI:}
 
 logging:
   level:

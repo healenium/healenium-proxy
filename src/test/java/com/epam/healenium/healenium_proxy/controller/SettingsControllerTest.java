@@ -1,111 +1,85 @@
 package com.epam.healenium.healenium_proxy.controller;
 
-import com.epam.healenium.healenium_proxy.auth.HealeniumAuthProperties;
-import com.epam.healenium.healenium_proxy.auth.IamAuthClient;
+import com.epam.healenium.healenium_proxy.model.ProxyDefaultsDto;
+import com.epam.healenium.healenium_proxy.service.SettingsClient;
 import com.epam.healenium.healenium_proxy.service.SettingsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
-import org.springframework.mock.web.server.MockServerWebExchange;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import java.util.Map;
-import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 class SettingsControllerTest {
 
-    @Mock
     private SettingsService settingsService;
-    @Mock
-    private IamAuthClient iamAuthClient;
-
-    private HealeniumAuthProperties properties;
+    private SettingsClient settingsClient;
     private SettingsController controller;
 
     @BeforeEach
     void setUp() {
-        properties = new HealeniumAuthProperties();
-        properties.getAuth().setEnabled(true);
-        controller = new SettingsController(settingsService, iamAuthClient, properties);
+        settingsService = mock(SettingsService.class);
+        settingsClient = mock(SettingsClient.class);
+        controller = new SettingsController(settingsService, settingsClient);
     }
 
     @Test
-    void testUpdateSingleSettingSuccessWithBearerToken() {
-        UUID tenantId = UUID.randomUUID();
-        when(iamAuthClient.validateBearerToken("valid-token")).thenReturn(Mono.just(tenantId));
-        when(settingsService.updateSingleSetting(eq("HEAL_ENABLED"), eq("true"), eq(tenantId.toString())))
-                .thenReturn(Mono.just(Map.of("success", true, "message", "Configuration updated successfully")));
-        when(settingsService.hasErrors(org.mockito.ArgumentMatchers.<Map<String, Object>>any())).thenReturn(false);
+    void defaults_returnsTheProxyConfiguration() {
+        ProxyDefaultsDto defaults = new ProxyDefaultsDto(true, 2, 0.7, "css", "INFO", "SELENIUM");
+        when(settingsService.defaults()).thenReturn(defaults);
 
-        MockServerHttpRequest request = MockServerHttpRequest.post("/hlm-proxy/settings/update")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer valid-token")
-                .header(HttpHeaders.ORIGIN, "https://44.193.74.68")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        ResponseEntity<ProxyDefaultsDto> response = controller.defaults();
 
-        Map<String, String> body = Map.of("key", "HEAL_ENABLED", "value", "true");
-
-        StepVerifier.create(controller.updateSingleSetting(body, exchange))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.OK, response.getStatusCode());
-                    assertNotNull(response.getBody());
-                    assertEquals(true, response.getBody().get("success"));
-                })
-                .verifyComplete();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(defaults, response.getBody());
     }
 
     @Test
-    void testUpdateSingleSettingSuccessWithAuthDisabled() {
-        properties.getAuth().setEnabled(false);
-        when(settingsService.updateSingleSetting(eq("SELECTOR_TYPE"), eq("cssSelector"),
-                eq(properties.getAuth().getDefaultTenantId())))
-                .thenReturn(Mono.just(Map.of("success", true, "message", "Configuration updated successfully")));
-        when(settingsService.hasErrors(org.mockito.ArgumentMatchers.<Map<String, Object>>any())).thenReturn(false);
+    void update_logLevel_isAppliedToThisProcess() {
+        ResponseEntity<Map<String, Object>> response = controller.update(Map.of("key", "LOG_LEVEL", "value", "debug"));
 
-        MockServerHttpRequest request = MockServerHttpRequest.post("/hlm-proxy/settings/update")
-                .header(HttpHeaders.ORIGIN, "https://44.193.74.68")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        Map<String, String> body = Map.of("key", "SELECTOR_TYPE", "value", "cssSelector");
-
-        StepVerifier.create(controller.updateSingleSetting(body, exchange))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.OK, response.getStatusCode());
-                    assertNotNull(response.getBody());
-                    assertEquals(true, response.getBody().get("success"));
-                })
-                .verifyComplete();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("DEBUG", response.getBody().get("logLevel"));
+        verify(settingsService).applyLogLevel("DEBUG");
     }
 
     @Test
-    void testUpdateSingleSettingUnauthorizedWhenTokenMissing() {
-        MockServerHttpRequest request = MockServerHttpRequest.post("/hlm-proxy/settings/update")
-                .header(HttpHeaders.ORIGIN, "https://44.193.74.68")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+    void update_anyOtherKey_isRejected_andNothingIsApplied() {
+        ResponseEntity<Map<String, Object>> response = controller.update(Map.of("key", "SCORE_CAP", "value", "0.9"));
 
-        Map<String, String> body = Map.of("key", "HEAL_ENABLED", "value", "true");
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(settingsService, never()).applyLogLevel(anyString());
+    }
 
-        StepVerifier.create(controller.updateSingleSetting(body, exchange))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-                    assertNotNull(response.getBody());
-                    assertEquals("Tenant not resolved", response.getBody().get("error"));
-                })
-                .verifyComplete();
+    @Test
+    void update_invalidLogLevel_keepsTheMessage() {
+        ResponseEntity<Map<String, Object>> response = controller.update(Map.of("key", "LOG_LEVEL", "value", "LOUD"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(Map.of("logLevel", "Log level must be one of: ERROR, WARN, INFO, DEBUG, TRACE"),
+                response.getBody().get("errors"));
+        verify(settingsService, never()).applyLogLevel(anyString());
+    }
+
+    @Test
+    void invalidate_withTenant_dropsOnlyThatTenant() {
+        controller.invalidate("11111111-1111-1111-1111-111111111111");
+
+        verify(settingsClient).invalidate("11111111-1111-1111-1111-111111111111");
+        verify(settingsClient, never()).invalidateAll();
+    }
+
+    @Test
+    void invalidate_withoutTenant_dropsEverything() {
+        controller.invalidate(null);
+
+        verify(settingsClient).invalidateAll();
     }
 }

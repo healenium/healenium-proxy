@@ -121,24 +121,8 @@ public class SettingsClient {
         }
     }
 
-    /**
-     * Update settings for a tenant and refresh the cache
-     */
-    public Mono<TenantSettingsDto> updateSettings(String tenantId, TenantSettingsDto dto) {
-        if (isDefaultTenant(tenantId)) {
-            return Mono.error(new IllegalArgumentException("The default tenant has no settings row"));
-        }
-
-        String key = tenantId.trim();
-        return restService.updateTenantSettings(key, dto)
-                .doOnSuccess(saved -> {
-                    if (saved != null) {
-                        cache.put(key, saved);
-                    }
-                })
-                .onErrorResume(e -> {
-                    log.warn("Failed to update tenant settings in backend for tenant {}: {}", key, e.getMessage());
-                    return Mono.empty();
-                });
+    /** Drops every cached tenant's settings. Used when hlm-iam calls without a tenant. */
+    public void invalidateAll() {
+        cache.invalidateAll();
     }
 }
