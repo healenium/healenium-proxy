@@ -61,6 +61,46 @@ class IamAuthClientTest {
     }
 
     @Test
+    void evictApiKey_forcesTheNextCallBackToIam() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        String valid = String.format("{\"valid\": true, \"tenantId\": \"%s\", \"role\": \"AUTOMATION\"}", tenantId);
+        for (int i = 0; i < 2; i++) {
+            mockWebServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(valid));
+        }
+        String rawKey = "hlm_live_revoked-soon";
+        StepVerifier.create(iamAuthClient.validateApiKey(rawKey)).expectNext(tenantId).verifyComplete();
+        StepVerifier.create(iamAuthClient.validateApiKey(rawKey)).expectNext(tenantId).verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount(), "the second call is served from the cache");
+
+        iamAuthClient.evictApiKey(sha256Hex(rawKey));
+
+        StepVerifier.create(iamAuthClient.validateApiKey(rawKey)).expectNext(tenantId).verifyComplete();
+        assertEquals(2, mockWebServer.getRequestCount(), "after the eviction the key is validated again");
+    }
+
+    @Test
+    void evictApiKey_leavesOtherKeysCached() {
+        UUID tenantId = UUID.randomUUID();
+        String valid = String.format("{\"valid\": true, \"tenantId\": \"%s\", \"role\": \"AUTOMATION\"}", tenantId);
+        mockWebServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(valid));
+        StepVerifier.create(iamAuthClient.validateApiKey("hlm_live_keep-me")).expectNext(tenantId).verifyComplete();
+
+        iamAuthClient.evictApiKey(sha256Hex("hlm_live_some-other-key"));
+
+        StepVerifier.create(iamAuthClient.validateApiKey("hlm_live_keep-me")).expectNext(tenantId).verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount());
+    }
+
+    private static String sha256Hex(String input) throws RuntimeException {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Test
     void testValidateApiKey_Invalid_ReturnsEmpty() {
         mockWebServer.enqueue(new MockResponse()
                 .setHeader("Content-Type", "application/json")

@@ -85,6 +85,15 @@ public class IamAuthClient {
         return Math.min(defaultTtlNanos, remainingNanos);
     }
 
+    /**
+     * Drops one key from the cache, so a key revoked in hlm-iam stops working here at once instead of
+     * when its entry expires. The key is named by its SHA-256 hash, which is how the cache stores it;
+     * hlm-iam never holds the raw key.
+     */
+    public void evictApiKey(String keyHash) {
+        authCache.invalidate("key:" + keyHash);
+    }
+
     public Mono<UUID> validateApiKey(String rawApiKey) {
         return validate("key", "apiKey", rawApiKey, "AUTOMATION", "IAM key validation failed");
     }
