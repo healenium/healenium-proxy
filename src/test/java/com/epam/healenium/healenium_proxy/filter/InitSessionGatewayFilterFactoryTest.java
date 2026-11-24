@@ -60,7 +60,7 @@ class InitSessionGatewayFilterFactoryTest {
                     "capabilities": {
                         "alwaysMatch": {
                             "browserName": "chrome",
-                            "hlm:api_key": "hlm_live_always_123"
+                            "hlm:api-key": "hlm_live_always_123"
                         }
                     }
                 }
@@ -77,7 +77,7 @@ class InitSessionGatewayFilterFactoryTest {
                         "firstMatch": [
                             {
                                 "browserName": "firefox",
-                                "hlm:api_key": "hlm_live_first_456"
+                                "hlm:api-key": "hlm_live_first_456"
                             }
                         ]
                     }
@@ -93,7 +93,7 @@ class InitSessionGatewayFilterFactoryTest {
                 {
                     "desiredCapabilities": {
                         "browserName": "edge",
-                        "hlm:api_key": "hlm_live_desired_789"
+                        "hlm:api-key": "hlm_live_desired_789"
                     }
                 }
                 """;
@@ -108,14 +108,14 @@ class InitSessionGatewayFilterFactoryTest {
                     "capabilities": {
                         "alwaysMatch": {
                             "browserName": "chrome",
-                            "hlm:api_key": "hlm_live_secret"
+                            "hlm:api-key": "hlm_live_secret"
                         }
                     }
                 }
                 """;
         String stripped = InitSessionGatewayFilterFactory.stripApiKeyFromRequestBody(body);
         assertFalse(stripped.contains("hlm_live_secret"));
-        assertFalse(stripped.contains("hlm:api_key"));
+        assertFalse(stripped.contains("hlm:api-key"));
         assertTrue(stripped.contains("browserName"));
     }
 
@@ -167,7 +167,7 @@ class InitSessionGatewayFilterFactoryTest {
                 {
                     "capabilities": {
                         "alwaysMatch": {
-                            "hlm:api_key": "hlm_live_invalid"
+                            "hlm:api-key": "hlm_live_invalid"
                         }
                     }
                 }
@@ -199,7 +199,7 @@ class InitSessionGatewayFilterFactoryTest {
                 {
                     "capabilities": {
                         "alwaysMatch": {
-                            "hlm:api_key": "hlm_live_valid"
+                            "hlm:api-key": "hlm_live_valid"
                         }
                     }
                 }
