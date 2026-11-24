@@ -37,9 +37,9 @@ class SdkEndpointsCoverageTest {
     void everyRequestTheSdkSends_isOnTheAllowList() {
         RestClient client = new RestClient(ConfigFactory.parseString(
                 "sessionKey = \"s\"\n"
-                        + "hlm.server.url = \"http://hlm-proxy:8085\"\n"
+                        + "hlm.server.url = \"http://healenium-proxy:8085\"\n"
                         + "hlm.imitator.url = \"http://imitator:8000\"\n"
-                        + "hlm.ai.url = \"http://hlm-proxy:8085\"\n"));
+                        + "hlm.ai.url = \"http://healenium-proxy:8085\"\n"));
         CapturingHttpClient capturing = new CapturingHttpClient(sent);
         client.setServerHttpClient(capturing);
         client.setAiServiceHttpClient(capturing);
@@ -53,10 +53,10 @@ class SdkEndpointsCoverageTest {
         assertFalse(sent.isEmpty(), "the capturing client must see the SDK calls");
         for (HttpRequest request : sent) {
             // The SDK's server client is relative to its /healenium base; replacing the client drops
-            // that base, so it is added back here to compare the full path that hlm-proxy receives.
+            // that base, so it is added back here to compare the full path that healenium-proxy receives.
             String fullPath = "/healenium" + request.getUri();
             assertTrue(SdkEndpoints.isAllowed(HttpMethod.valueOf(request.getMethod().name()), fullPath),
-                    () -> "SDK sent a call that hlm-proxy does not allow: " + request.getMethod() + " " + fullPath);
+                    () -> "SDK sent a call that healenium-proxy does not allow: " + request.getMethod() + " " + fullPath);
         }
     }
 
@@ -79,7 +79,7 @@ class SdkEndpointsCoverageTest {
         assertFalse(SdkEndpoints.isAllowed(HttpMethod.DELETE, "/healenium/elements"));
         assertFalse(SdkEndpoints.isAllowed(HttpMethod.POST, "/healenium/report/init/"));
         assertFalse(SdkEndpoints.isAllowed(HttpMethod.POST, "/healenium/report/init/a/b"));
-        assertFalse(SdkEndpoints.isAllowed(HttpMethod.POST, "/hlm-proxy/settings/update"));
+        assertFalse(SdkEndpoints.isAllowed(HttpMethod.POST, "/healenium-proxy/settings/update"));
     }
 
     /** Answers every call with an empty JSON object, and records the request. */

@@ -60,7 +60,7 @@ class IamGatewayRouteTest {
                 .setBody("{\"status\": \"ok\"}"));
 
         webTestClient.get()
-                .uri("/iam/users/me")
+                .uri("/healenium-iam/users/me")
                 .header("Authorization", "Bearer test-token")
                 .exchange()
                 .expectStatus().isOk()

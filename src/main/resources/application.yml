@@ -122,7 +122,7 @@ healing:
 
 healenium:
   auth:
-    # When true, IAM auth is required for /healenium/** and /hlm-proxy/**
+    # When true, IAM auth is required for /healenium/** and /healenium-proxy/**
     enabled: ${HEALENIUM_AUTH_ENABLED:false}
 
 logging:
@@ -140,10 +140,10 @@ logging:
     console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
     file: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
   file:
-    name: ./logs/healenium-proxy.log
+    name: ./logs/hlm-proxy.log
   logback:
     rollingpolicy:
-      file-name-pattern: ./logs/healenium-proxy-%d{yyyy-MM-dd}.%i.log.gz
+      file-name-pattern: ./logs/hlm-proxy-%d{yyyy-MM-dd}.%i.log.gz
       max-file-size: 1MB
       max-history: 1
       total-size-cap: 100MB

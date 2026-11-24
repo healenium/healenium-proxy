@@ -92,8 +92,8 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
 
     /** IAM paths moved to hlm-iam, and proxy management paths that have no controller here. */
     static boolean isNotServedHere(String path) {
-        return path.equals("/iam") || path.startsWith("/iam/")
-                || path.equals("/hlm-proxy") || path.startsWith("/hlm-proxy/")
+        return path.equals("/healenium-iam") || path.startsWith("/healenium-iam/")
+                || path.equals("/healenium-proxy") || path.startsWith("/healenium-proxy/")
                 || path.equals("/actuator") || path.startsWith("/actuator/");
     }
 

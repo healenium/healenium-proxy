@@ -25,7 +25,7 @@ import java.util.Map;
 @Slf4j(topic = "healenium")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/hlm-proxy/logs")
+@RequestMapping("/healenium-proxy/logs")
 public class LogController {
 
     private static final DateTimeFormatter LOG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");

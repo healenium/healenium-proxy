@@ -60,7 +60,7 @@ class TenantAuthGlobalFilterTest {
     @Test
     void communityMode_passesEveryPathThroughUnchanged() {
         properties.getAuth().setEnabled(false);
-        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/iam/users/me").build());
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/healenium-iam/users/me").build());
         when(chain.filter(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
@@ -71,10 +71,10 @@ class TenantAuthGlobalFilterTest {
 
     @Test
     void iamPaths_answer404_andNeverReachTheChain() {
-        assertNotServed("/iam/users/me");
-        assertNotServed("/iam/auth/validate");
-        assertNotServed("/hlm-proxy/me");
-        assertNotServed("/hlm-proxy/settings/defaults");
+        assertNotServed("/healenium-iam/users/me");
+        assertNotServed("/healenium-iam/auth/validate");
+        assertNotServed("/healenium-proxy/me");
+        assertNotServed("/healenium-proxy/settings/defaults");
         assertNotServed("/actuator/health");
     }
 

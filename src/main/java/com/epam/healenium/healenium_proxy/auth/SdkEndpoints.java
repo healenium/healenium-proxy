@@ -5,7 +5,7 @@ import org.springframework.http.HttpMethod;
 import java.util.List;
 
 /**
- * The only backend and AI paths that a CI/CD client may call through hlm-proxy in Pro mode
+ * The only backend and AI paths that a CI/CD client may call through healenium-proxy in Pro mode
  * (spec 004, Requirement 5.2, design decision 8). Taken from healenium-web's RestClient:
  * {@code saveElements}, {@code getElements}, {@code getReferenceElements}, {@code healRequest},
  * {@code initReport}, {@code getTenantSettings} and {@code getXpathSelector}. The selector imitator

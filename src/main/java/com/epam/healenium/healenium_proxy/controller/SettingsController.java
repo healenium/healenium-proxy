@@ -24,7 +24,7 @@ import java.util.Map;
 @Slf4j(topic = "healenium")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/hlm-proxy/settings")
+@RequestMapping("/healenium-proxy/settings")
 public class SettingsController {
 
     static final String TENANT_HEADER = "Healenium-Tenant-Id";
