@@ -2,6 +2,9 @@ server:
   port: ${SPRING_SERVER_PORT:8085}
   # Enable forwarded headers Spring Boot for link generation
   forward-headers-strategy: framework
+  max-http-request-header-size: ${SERVER_MAX_HTTP_REQUEST_HEADER_SIZE:64KB}
+  netty:
+    max-initial-line-length: 16KB
 
 proxy:
   test:
@@ -11,9 +14,7 @@ proxy:
     url: ${SELENIUM_SERVER_URL:http://localhost:4444/wd/hub}
   healenium:
     container:
-      url: ${HEALENIUM_SERVICE:http://localhost:7878}
-    server:
-      url: ${HEALENIUM_SERVER_URL:http://localhost:7878}
+      url: ${HEALENIUM_CONTAINER_URL:${HEALENIUM_SERVICE:${HEALENIUM_SERVER_URL:http://localhost:7878}}}
   imitate:
     container:
       url: ${IMITATE_SERVICE:http://localhost:8000}
@@ -23,6 +24,10 @@ proxy:
   playwright:
     container:
       url: ${PLAYWRIGHT_PROXY_SERVICE:http://localhost:8095}
+  iam:
+    url: ${HEALENIUM_IAM_URL:http://healenium-iam:7070}
+    cache-ttl-seconds: ${IAM_CACHE_TTL_SECONDS:300}
+    cache-max-size: ${IAM_CACHE_MAX_SIZE:10000}
 
 spring:
   banner:
@@ -31,14 +36,21 @@ spring:
     enabled: false
   cloud:
     gateway:
+      httpclient:
+        max-header-size: 64KB
+        max-initial-line-length: 16KB
       server:
         webflux:
+          httpclient:
+            max-header-size: 64KB
+            max-initial-line-length: 16KB
           globalcors:
             cors-configurations:
               '[/**]':
-                allowedOrigins: "http://localhost:5173"
+                allowedOriginPatterns: "${CORS_ALLOWED_ORIGIN_PATTERNS:*}"
                 allowedMethods: "*"
                 allowedHeaders: "*"
+                allowCredentials: true
                 maxAge: 3600
           routes:
             - id: selenium_session
@@ -92,6 +104,14 @@ spring:
                 - StripPrefix=1
                 - AddRequestHeader=X-Forwarded-Prefix, /hlm-proxy
 
+            # Route /hlm-proxy/me to IAM /v1/users/me (SettingsController, LogController, LogoutController are WebFlux local controllers)
+            - id: hlm_proxy_me
+              uri: ${proxy.iam.url}
+              predicates:
+                - Path=/hlm-proxy/me
+              filters:
+                - RewritePath=/hlm-proxy/me, /v1/users/me
+
             - id: healenium_actuator
               uri: ${proxy.healenium.container.url}
               predicates:
@@ -113,18 +133,12 @@ spring:
                 response-timeout: 600000
                 connect-timeout: 10000
 
-            - id: playwright_proxy_actuator
-              uri: ${proxy.playwright.container.url}
+            - id: healenium_iam
+              uri: ${proxy.iam.url}
               predicates:
-                - Path=/hlm-playwright-proxy/actuator/**
+                - Path=/iam/**
               filters:
-                - StripPrefix=1
-                - AddRequestHeader=X-Forwarded-Prefix, /hlm-playwright-proxy
-
-            - id: playwright_proxy
-              uri: ${proxy.playwright.container.url}
-              predicates:
-                - Path=/hlm-playwright-proxy/**
+                - RewritePath=/iam/(?<segment>.*), /v1/$\{segment}
 
             - id: fallback_route
               uri: ${proxy.selenium.url}
@@ -136,6 +150,13 @@ healing:
   recoverytries: ${RECOVERY_TRIES:1}
   scorecap: ${SCORE_CAP:.6}
   selectortype: ${SELECTOR_TYPE:cssSelector}
+
+healenium:
+  auth:
+    # When true, IAM auth is required for /healenium/** and /hlm-proxy/**
+    enabled: ${HEALENIUM_AUTH_ENABLED:false}
+    logout-uri: ${LOGOUT_URI:}
+
 logging:
   level:
     ROOT: ${SPRING_LOG_LEVEL:INFO}
@@ -143,6 +164,10 @@ logging:
     org.mongodb.driver.connection: WARN
     healenium: ${HLM_LOG_LEVEL:debug}
     com.epam.healenium.appium: ${HLM_LOG_LEVEL:debug}
+    org.springframework.security: INFO
+    org.springframework.web.reactive.function.client: INFO
+    org.springframework.cloud.gateway: ${SPRING_LOG_LEVEL:INFO}
+    reactor.netty: ${SPRING_LOG_LEVEL:INFO}
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
     file: '%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx'
@@ -154,3 +179,4 @@ logging:
       max-file-size: 1MB
       max-history: 1
       total-size-cap: 100MB
+
