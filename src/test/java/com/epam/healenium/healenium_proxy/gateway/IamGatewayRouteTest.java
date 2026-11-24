@@ -2,7 +2,6 @@ package com.epam.healenium.healenium_proxy.gateway;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +16,13 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+/**
+ * IAM endpoints moved to hlm-iam (spec 004), so this proxy no longer routes {@code /healenium-iam/**}.
+ * In pro mode (auth enabled) such a path must answer 404 and must never reach hlm-iam or Selenium.
+ */
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "healenium.auth.enabled=true")
 class IamGatewayRouteTest {
 
     private static MockWebServer mockIamServer;
@@ -53,7 +58,7 @@ class IamGatewayRouteTest {
     }
 
     @Test
-    void testIamRouteRewritesAndProxiesToV1() throws InterruptedException {
+    void iamPath_answers404_andIsNotProxiedToIam() {
         mockIamServer.enqueue(new MockResponse()
                 .setHeader("Content-Type", "application/json")
                 .setResponseCode(200)
@@ -63,12 +68,8 @@ class IamGatewayRouteTest {
                 .uri("/healenium-iam/users/me")
                 .header("Authorization", "Bearer test-token")
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.status").isEqualTo("ok");
+                .expectStatus().isNotFound();
 
-        RecordedRequest recorded = mockIamServer.takeRequest();
-        assertEquals("/v1/users/me", recorded.getPath());
-        assertEquals("Bearer test-token", recorded.getHeader("Authorization"));
+        assertEquals(0, mockIamServer.getRequestCount());
     }
 }

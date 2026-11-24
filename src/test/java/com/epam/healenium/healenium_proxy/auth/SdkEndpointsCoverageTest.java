@@ -1,6 +1,8 @@
 package com.epam.healenium.healenium_proxy.auth;
 
+import com.epam.healenium.appium.utils.MobileStackTraceReader;
 import com.epam.healenium.client.RestClient;
+import com.epam.healenium.healenium_proxy.mapper.ProxyHealeniumMapper;
 import com.epam.healenium.model.RequestDto;
 import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,8 @@ class SdkEndpointsCoverageTest {
                         + "hlm.server.url = \"http://healenium-proxy:8085\"\n"
                         + "hlm.imitator.url = \"http://imitator:8000\"\n"
                         + "hlm.ai.url = \"http://healenium-proxy:8085\"\n"));
+        // RestClient.getReferenceElements() needs a mapper; the engine normally sets it (see SelfHealingHandlerBuilder).
+        client.setMapper(new ProxyHealeniumMapper(new MobileStackTraceReader()));
         CapturingHttpClient capturing = new CapturingHttpClient(sent);
         client.setServerHttpClient(capturing);
         client.setAiServiceHttpClient(capturing);
