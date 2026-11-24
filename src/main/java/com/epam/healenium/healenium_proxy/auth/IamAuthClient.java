@@ -4,14 +4,11 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import lombok.extern.slf4j.Slf4j;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -20,7 +17,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
@@ -89,36 +85,22 @@ public class IamAuthClient {
         return Math.min(defaultTtlNanos, remainingNanos);
     }
 
-    public Mono<UUID> validateApiKey(String rawApiKey) {
-        return validate("key", "apiKey", rawApiKey, "AUTOMATION", "IAM key validation failed", false);
-    }
-
-    public Mono<UUID> validateBearerToken(String bearerToken) {
-        return validate("token", "token", bearerToken, "MEMBER", "IAM token validation failed", true);
-    }
-
     /**
-     * Resolves tenant ID from request exchange
-     * when auth is disabled - from tenant header or default
-     * when auth is enabled  - from validated bearer token
+     * Drops one key from the cache, so a key revoked in hlm-iam stops working here at once instead of
+     * when its entry expires. The key is named by its SHA-256 hash, which is how the cache stores it;
+     * hlm-iam never holds the raw key.
      */
-    public static Mono<String> resolveTenant(ServerWebExchange exchange,
-                                             HealeniumAuthProperties properties,
-                                             IamAuthClient iamAuthClient) {
-        if (!properties.getAuth().isEnabled()) {
-            String requested = exchange.getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.TENANT_HEADER);
-            return Mono.just(requested != null ? requested.trim() : properties.getAuth().getDefaultTenantId().trim());
-        }
-        String token = TenantAuthGlobalFilter.extractBearerToken(exchange);
-        if (StringUtils.hasText(token)) {
-            return iamAuthClient.validateBearerToken(token).map(UUID::toString);
-        }
-        return Mono.empty();
+    public void evictApiKey(String keyHash) {
+        authCache.invalidate("key:" + keyHash);
+    }
+
+    public Mono<UUID> validateApiKey(String rawApiKey) {
+        return validate("key", "apiKey", rawApiKey, "AUTOMATION", "IAM key validation failed");
     }
 
     @SuppressWarnings("unchecked")
     private Mono<UUID> validate(String cachePrefix, String payloadKey, String rawValue,
-                                String defaultRole, String logLabel, boolean capAtJwtExp) {
+                                String defaultRole, String logLabel) {
         if (rawValue == null || rawValue.isBlank()) {
             return Mono.empty();
         }
@@ -133,7 +115,7 @@ public class IamAuthClient {
         }
 
         return webClient.post()
-                .uri("/v1/auth/validate")
+                .uri("/internal/auth/validate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of(payloadKey, rawValue))
                 .retrieve()
@@ -145,10 +127,7 @@ public class IamAuthClient {
                     if (valid && tenantIdObj != null) {
                         UUID tenantId = UUID.fromString(tenantIdObj.toString());
                         String role = map.get("role") != null ? map.get("role").toString() : defaultRole;
-                        Instant expiresAt = capAtJwtExp ? extractJwtExpiration(rawValue) : null;
-                        if (expiresAt == null || clock.instant().isBefore(expiresAt)) {
-                            authCache.put(cacheKey, new CachedAuthResult(tenantId, role, "ACTIVE", expiresAt));
-                        }
+                        authCache.put(cacheKey, new CachedAuthResult(tenantId, role, "ACTIVE", null));
                         return Mono.just(tenantId);
                     }
                     return Mono.empty();
@@ -157,29 +136,6 @@ public class IamAuthClient {
                     log.warn("{}: {}", logLabel, e.getMessage());
                     return Mono.empty();
                 });
-    }
-
-    static Instant extractJwtExpiration(String token) {
-        if (token == null) {
-            return null;
-        }
-        String[] parts = token.split("\\.");
-        if (parts.length != 3) {
-            return null;
-        }
-        try {
-            byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
-            JSONObject payload = new JSONObject(new String(decoded, StandardCharsets.UTF_8));
-            if (payload.has("exp") && !payload.isNull("exp")) {
-                Number exp = payload.optNumber("exp");
-                if (exp != null && exp.longValue() > 0) {
-                    return Instant.ofEpochSecond(exp.longValue());
-                }
-            }
-        } catch (Exception e) {
-            log.debug("Unable to parse JWT exp claim for cache capping: {}", e.getMessage());
-        }
-        return null;
     }
 
     private String hashKey(String input) {

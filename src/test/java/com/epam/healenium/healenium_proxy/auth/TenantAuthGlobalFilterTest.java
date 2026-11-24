@@ -17,12 +17,19 @@ import reactor.test.StepVerifier;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+/** Pro-mode CI/CD gateway (spec 004, Requirement 5): SDK allow-list, API key only, everything else 404. */
 @ExtendWith(MockitoExtension.class)
 class TenantAuthGlobalFilterTest {
+
+    private static final String KEY = "hlm_live_sdk_key";
 
     @Mock
     private IamAuthClient iamAuthClient;
@@ -35,350 +42,141 @@ class TenantAuthGlobalFilterTest {
     @BeforeEach
     void setUp() {
         properties = new HealeniumAuthProperties();
+        properties.getAuth().setEnabled(true);
         filter = new TenantAuthGlobalFilter(iamAuthClient, properties);
     }
 
     @Test
-    void testNonBackendPathIgnored() {
-        MockServerHttpRequest request = MockServerHttpRequest.get("/wd/hub/status").build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+    void webDriverPath_passesThroughWithoutACheck() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/wd/hub/status").build());
         when(chain.filter(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         verify(chain).filter(exchange);
         verifyNoInteractions(iamAuthClient);
     }
 
     @Test
-    void testAuthDisabledAllowsBackendPathWithoutAuth() {
+    void communityMode_passesEveryPathThroughUnchanged() {
         properties.getAuth().setEnabled(false);
-        MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/elements").build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/healenium-iam/users/me").build());
         when(chain.filter(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         verify(chain).filter(exchange);
         verifyNoInteractions(iamAuthClient);
     }
 
     @Test
-    void testAuthEnabledMissingAuthHeaderRejects401() {
-        properties.getAuth().setEnabled(true);
-        MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/elements").build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+    void iamPaths_answer404_andNeverReachTheChain() {
+        assertNotServed("/healenium-iam/users/me");
+        assertNotServed("/healenium-iam/auth/validate");
+        assertNotServed("/healenium-proxy/me");
+        assertNotServed("/healenium-proxy/settings/defaults");
+        assertNotServed("/actuator/health");
+    }
 
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
+    @Test
+    void backendPathOutsideTheAllowList_answers404_evenWithAValidKey() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/healenium/report/all").header("X-Api-Key", KEY).build());
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+
+        assertEquals(HttpStatus.NOT_FOUND, exchange.getResponse().getStatusCode());
+        verifyNoInteractions(iamAuthClient, chain);
+    }
+
+    @Test
+    void logsAndActuatorOnTheBackend_answer404() {
+        assertBackend404(MockServerHttpRequest.get("/healenium/logs/time-range"));
+        assertBackend404(MockServerHttpRequest.get("/healenium/actuator/health"));
+        assertBackend404(MockServerHttpRequest.get("/screenshots/abc/shot.png"));
+    }
+
+    @Test
+    void sdkPath_withoutAKey_answers401() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/healenium/elements").build());
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
+        verifyNoInteractions(iamAuthClient, chain);
     }
 
     @Test
-    void testAuthEnabledLoginPathsPassWithoutToken() {
-        properties.getAuth().setEnabled(true);
-        when(chain.filter(any())).thenReturn(Mono.empty());
+    void sdkPath_withOnlyABearerToken_answers401_becauseTheDashboardNoLongerUsesThisPort() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/healenium/elements").header(HttpHeaders.AUTHORIZATION, "Bearer eyJ.x.y").build());
 
-        for (String path : new String[]{"/iam/auth/exchange", "/iam/auth/refresh"}) {
-            MockServerWebExchange exchange = MockServerWebExchange.from(
-                    MockServerHttpRequest.post(path).build());
-
-            StepVerifier.create(filter.filter(exchange, chain))
-                    .verifyComplete();
-
-        }
-        // The filter forwards a mutated exchange (sanitized headers), so match any exchange.
-        verify(chain, times(2)).filter(any());
-        verifyNoInteractions(iamAuthClient);
-    }
-
-    @Test
-    void testAuthEnabledInvalidTokenRejects401() {
-        properties.getAuth().setEnabled(true);
-        when(iamAuthClient.validateBearerToken("invalid_jwt")).thenReturn(Mono.empty());
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/elements")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer invalid_jwt")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
+        verifyNoInteractions(iamAuthClient, chain);
     }
 
     @Test
-    void testAuthEnabledValidTokenMutatesHeadersAndCallsChain() {
-        properties.getAuth().setEnabled(true);
-        UUID expectedTenantId = UUID.randomUUID();
-        when(iamAuthClient.validateBearerToken("valid_jwt")).thenReturn(Mono.just(expectedTenantId));
-        when(chain.filter(any())).thenReturn(Mono.empty());
-
-        // Spoofing attempt: client passes a forged Healenium-Tenant-Id
-        MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/elements")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer valid_jwt")
-                .header("Healenium-Tenant-Id", UUID.randomUUID().toString())
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
-        verify(chain).filter(captor.capture());
-
-        ServerWebExchange downstreamExchange = captor.getValue();
-        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
-
-        // 1. Authorization header stripped
-        assertNull(downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
-        // 2. Healenium-Tenant-Id overwritten with verified tenant_id
-        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
-    }
-
-    @Test
-    void testAuthEnabledValidApiKeyMutatesHeadersAndCallsChain() {
-        properties.getAuth().setEnabled(true);
-        UUID expectedTenantId = UUID.randomUUID();
-        when(iamAuthClient.validateApiKey("hlm_live_sdk_key")).thenReturn(Mono.just(expectedTenantId));
-        when(chain.filter(any())).thenReturn(Mono.empty());
-
-        MockServerHttpRequest request = MockServerHttpRequest.post("/healenium/elements")
-                .header(TenantAuthGlobalFilter.API_KEY_HEADER, "hlm_live_sdk_key")
-                .header("Healenium-Tenant-Id", "forged-tenant")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
-        verify(chain).filter(captor.capture());
-
-        ServerWebExchange downstreamExchange = captor.getValue();
-        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
-
-        // 1. X-Api-Key header stripped
-        assertNull(downstreamHeaders.getFirst(TenantAuthGlobalFilter.API_KEY_HEADER));
-        // 2. Healenium-Tenant-Id set to verified tenant ID
-        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
-    }
-
-    @Test
-    void testAuthEnabledInvalidApiKeyRejects401() {
-        properties.getAuth().setEnabled(true);
+    void sdkPath_withAnInvalidKey_answers401() {
         when(iamAuthClient.validateApiKey("hlm_live_bad")).thenReturn(Mono.empty());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/healenium/elements").header("X-Api-Key", "hlm_live_bad").build());
 
-        MockServerHttpRequest request = MockServerHttpRequest.post("/healenium/elements")
-                .header(TenantAuthGlobalFilter.API_KEY_HEADER, "hlm_live_bad")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         verifyNoInteractions(chain);
     }
 
     @Test
-    void testAuthEnabledMissingAuthHeaderRejectsEvenWhenDefaultTenantIdIsSet() {
-        properties.getAuth().setEnabled(true);
-        properties.getAuth().setDefaultTenantId(UUID.randomUUID().toString());
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/healenium/report/all")
-                .header("Healenium-Tenant-Id", "forged-tenant")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
-    }
-
-    @Test
-    void testAuthEnabledTokenInQueryParamRejectedWith401() {
-        properties.getAuth().setEnabled(true);
-
-        MockServerHttpRequest tokenRequest = MockServerHttpRequest.get("/screenshots/hash123/img.png?token=valid_param_jwt").build();
-        MockServerWebExchange tokenExchange = MockServerWebExchange.from(tokenRequest);
-
-        StepVerifier.create(filter.filter(tokenExchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, tokenExchange.getResponse().getStatusCode());
-
-        MockServerHttpRequest accessTokenRequest = MockServerHttpRequest.get("/iam/users/me?access_token=valid_param_jwt").build();
-        MockServerWebExchange accessTokenExchange = MockServerWebExchange.from(accessTokenRequest);
-
-        StepVerifier.create(filter.filter(accessTokenExchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, accessTokenExchange.getResponse().getStatusCode());
-        verifyNoInteractions(iamAuthClient);
-        verifyNoInteractions(chain);
-    }
-
-    @Test
-    void testAuthEnabledTokenInCookieRejectedWith401() {
-        properties.getAuth().setEnabled(true);
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png")
-                .cookie(new org.springframework.http.HttpCookie("hlm_token", "valid_cookie_jwt"))
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(iamAuthClient);
-        verifyNoInteractions(chain);
-    }
-
-    @Test
-    void testAuthEnabledStripsCookieAndCredentialsWhenForwardingToBackend() {
-        properties.getAuth().setEnabled(true);
-        UUID expectedTenantId = UUID.randomUUID();
-        when(iamAuthClient.validateBearerToken("valid_jwt")).thenReturn(Mono.just(expectedTenantId));
+    void sdkPath_withAValidKey_forwardsWithTheTenant_andStripsCredentials() {
+        UUID tenant = UUID.randomUUID();
+        when(iamAuthClient.validateApiKey(KEY)).thenReturn(Mono.just(tenant));
         when(chain.filter(any())).thenReturn(Mono.empty());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/healenium/elements")
+                        .header("X-Api-Key", KEY)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer should-not-pass")
+                        .header(HttpHeaders.COOKIE, "hlm_idp_token=should-not-pass")
+                        .header("Healenium-Tenant-Id", "forged")
+                        .build());
 
-        MockServerHttpRequest request = MockServerHttpRequest.get("/screenshots/hash123/img.png")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer valid_jwt")
-                .cookie(new org.springframework.http.HttpCookie("hlm_refresh_token", "secret_refresh"))
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
-        verify(chain).filter(captor.capture());
-
-        HttpHeaders downstreamHeaders = captor.getValue().getRequest().getHeaders();
-        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
-        assertNull(downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
-        assertNull(downstreamHeaders.getFirst(HttpHeaders.COOKIE));
+        ArgumentCaptor<ServerWebExchange> forwarded = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(forwarded.capture());
+        HttpHeaders headers = forwarded.getValue().getRequest().getHeaders();
+        assertEquals(tenant.toString(), headers.getFirst(TenantAuthGlobalFilter.TENANT_HEADER));
+        assertNull(headers.getFirst(HttpHeaders.AUTHORIZATION));
+        assertNull(headers.getFirst(HttpHeaders.COOKIE));
+        assertNull(headers.getFirst("X-Api-Key"));
+        assertEquals(1, headers.get(TenantAuthGlobalFilter.TENANT_HEADER).size());
     }
 
     @Test
-    void testInternalValidateEndpointBlockedWith403() {
-        MockServerHttpRequest request = MockServerHttpRequest.post("/iam/auth/validate").build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.FORBIDDEN, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
-    }
-
-    @Test
-    void testPublicIamPathsForwardedWithoutAuthAndSanitizeHeaders() {
+    void aiSelectorPost_withAValidKey_isForwarded() {
+        UUID tenant = UUID.randomUUID();
+        when(iamAuthClient.validateApiKey(KEY)).thenReturn(Mono.just(tenant));
         when(chain.filter(any())).thenReturn(Mono.empty());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/healenium-ai/selectors/xpath").header("X-Api-Key", KEY).build());
 
-        MockServerHttpRequest request = MockServerHttpRequest.post("/iam/auth/exchange")
-                .header("X-Tenant-Id", UUID.randomUUID().toString())
-                .header("Healenium-Tenant-Id", UUID.randomUUID().toString())
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
-        verify(chain).filter(captor.capture());
-
-        ServerWebExchange downstreamExchange = captor.getValue();
-        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
-
-        assertNull(downstreamHeaders.getFirst("X-Tenant-Id"));
-        assertNull(downstreamHeaders.getFirst("Healenium-Tenant-Id"));
-        verifyNoInteractions(iamAuthClient);
+        verify(chain).filter(any());
+        assertFalse(exchange.getResponse().isCommitted());
     }
 
-    @Test
-    void testProtectedIamPathMissingTokenRejects401() {
-        properties.getAuth().setEnabled(true);
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/api-keys").build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
+    private void assertNotServed(String path) {
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path).build());
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        assertEquals(HttpStatus.NOT_FOUND, exchange.getResponse().getStatusCode(), path);
     }
 
-    @Test
-    void testProtectedIamPathInvalidTokenRejects401() {
-        properties.getAuth().setEnabled(true);
-        when(iamAuthClient.validateBearerToken("bad_token")).thenReturn(Mono.empty());
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/api-keys")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer bad_token")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
-    }
-
-    @Test
-    void testProtectedIamPathValidTokenSanitizesSpoofedHeadersAndForwardsBearer() {
-        properties.getAuth().setEnabled(true);
-        UUID expectedTenantId = UUID.randomUUID();
-        when(iamAuthClient.validateBearerToken("valid_token")).thenReturn(Mono.just(expectedTenantId));
-        when(chain.filter(any())).thenReturn(Mono.empty());
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/users/me")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer valid_token")
-                .header("X-Tenant-Id", UUID.randomUUID().toString())
-                .header("Healenium-Tenant-Id", UUID.randomUUID().toString())
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
-        verify(chain).filter(captor.capture());
-
-        ServerWebExchange downstreamExchange = captor.getValue();
-        HttpHeaders downstreamHeaders = downstreamExchange.getRequest().getHeaders();
-
-        // Only the trusted Healenium-Tenant-Id identifies the tenant; the client-sent X-Tenant-Id is dropped.
-        assertNull(downstreamHeaders.getFirst("X-Tenant-Id"));
-        assertEquals(expectedTenantId.toString(), downstreamHeaders.getFirst("Healenium-Tenant-Id"));
-        assertEquals("Bearer valid_token", downstreamHeaders.getFirst(HttpHeaders.AUTHORIZATION));
-    }
-
-    @Test
-    void testProtectedIamPathMissingTokenRejectsEvenWhenDefaultTenantIdIsSet() {
-        properties.getAuth().setEnabled(true);
-        properties.getAuth().setDefaultTenantId(UUID.randomUUID().toString());
-
-        MockServerHttpRequest request = MockServerHttpRequest.get("/iam/api-keys")
-                .header("Healenium-Tenant-Id", "forged-tenant")
-                .build();
-        MockServerWebExchange exchange = MockServerWebExchange.from(request);
-
-        StepVerifier.create(filter.filter(exchange, chain))
-                .verifyComplete();
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verifyNoInteractions(chain);
+    private void assertBackend404(MockServerHttpRequest.BaseBuilder<?> request) {
+        MockServerWebExchange exchange = MockServerWebExchange.from(request.header("X-Api-Key", KEY).build());
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        assertEquals(HttpStatus.NOT_FOUND, exchange.getResponse().getStatusCode());
     }
 }
