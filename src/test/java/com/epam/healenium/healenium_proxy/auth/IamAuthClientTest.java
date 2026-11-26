@@ -120,4 +120,26 @@ class IamAuthClientTest {
         StepVerifier.create(iamAuthClient.validateApiKey("hlm_live_any"))
                 .verifyComplete();
     }
+
+    @Test
+    void sendsTheInternalSecretHeaderWhenConfigured() throws InterruptedException {
+        IamAuthClient withSecret = new IamAuthClient(WebClient.builder(), mockWebServer.url("/").toString(), 300, 1000,
+                java.time.Clock.systemUTC(), "shared-secret");
+        mockWebServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setResponseCode(401)
+                .setBody("{\"valid\": false}"));
+
+        StepVerifier.create(withSecret.validateApiKey("hlm_live_any")).verifyComplete();
+
+        assertEquals("shared-secret", mockWebServer.takeRequest().getHeader("X-Internal-Secret"));
+    }
+
+    @Test
+    void sendsNoInternalSecretHeaderWhenNotConfigured() throws InterruptedException {
+        mockWebServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setResponseCode(401)
+                .setBody("{\"valid\": false}"));
+
+        StepVerifier.create(iamAuthClient.validateApiKey("hlm_live_any")).verifyComplete();
+
+        org.junit.jupiter.api.Assertions.assertNull(mockWebServer.takeRequest().getHeader("X-Internal-Secret"));
+    }
 }

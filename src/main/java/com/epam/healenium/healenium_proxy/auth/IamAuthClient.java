@@ -25,9 +25,13 @@ import java.util.UUID;
 @Component
 public class IamAuthClient {
 
+    public static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
+
     private final WebClient webClient;
     private final Cache<String, CachedAuthResult> authCache;
     private final Clock clock;
+    /** Shared secret sent to hlm-iam's internal endpoint; blank means none is sent. Never logged. */
+    private final String internalSecret;
 
     public record CachedAuthResult(UUID tenantId, String role, String status, Instant expiresAt) {}
 
@@ -35,8 +39,13 @@ public class IamAuthClient {
     public IamAuthClient(WebClient.Builder webClientBuilder,
                          @Value("${proxy.iam.url:http://healenium-iam:7070}") String iamUrl,
                          @Value("${proxy.iam.cache-ttl-seconds:300}") int cacheTtlSeconds,
-                         @Value("${proxy.iam.cache-max-size:10000}") int cacheMaxSize) {
-        this(webClientBuilder, iamUrl, cacheTtlSeconds, cacheMaxSize, Clock.systemUTC());
+                         @Value("${proxy.iam.cache-max-size:10000}") int cacheMaxSize,
+                         @Value("${proxy.iam.internal-secret:}") String internalSecret) {
+        this(webClientBuilder, iamUrl, cacheTtlSeconds, cacheMaxSize, Clock.systemUTC(), internalSecret);
+    }
+
+    IamAuthClient(WebClient.Builder webClientBuilder, String iamUrl, int cacheTtlSeconds, int cacheMaxSize) {
+        this(webClientBuilder, iamUrl, cacheTtlSeconds, cacheMaxSize, Clock.systemUTC(), "");
     }
 
     IamAuthClient(WebClient.Builder webClientBuilder,
@@ -44,8 +53,18 @@ public class IamAuthClient {
                   int cacheTtlSeconds,
                   int cacheMaxSize,
                   Clock clock) {
+        this(webClientBuilder, iamUrl, cacheTtlSeconds, cacheMaxSize, clock, "");
+    }
+
+    IamAuthClient(WebClient.Builder webClientBuilder,
+                  String iamUrl,
+                  int cacheTtlSeconds,
+                  int cacheMaxSize,
+                  Clock clock,
+                  String internalSecret) {
         this.webClient = webClientBuilder.baseUrl(iamUrl).build();
         this.clock = clock;
+        this.internalSecret = internalSecret == null ? "" : internalSecret.trim();
         long defaultTtlNanos = Duration.ofSeconds(Math.max(0, cacheTtlSeconds)).toNanos();
         this.authCache = Caffeine.newBuilder()
                 .ticker(() -> {
@@ -116,6 +135,11 @@ public class IamAuthClient {
 
         return webClient.post()
                 .uri("/internal/auth/validate")
+                .headers(headers -> {
+                    if (!internalSecret.isEmpty()) {
+                        headers.set(INTERNAL_SECRET_HEADER, internalSecret);
+                    }
+                })
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of(payloadKey, rawValue))
                 .retrieve()
