@@ -26,7 +26,7 @@ public class RestoreMobileNativeDriver implements RestoreDriver {
         SelfHealingEngine engine = SelfHealingHandlerBuilder.mobileEngine(restoreWebDriver, config);
         proxySessionContext.setSelfHealingHandlerBase(new BaseHandler(engine));
         proxySessionContext.setSelfHealingHandlerWebElement(new WebElementProxyHandler(engine));
-        RestClientTenantAuth.apply(engine.getClient(), proxySessionContext.getTenantId());
+        RestClientTenantAuth.applySession(engine.getClient(), proxySessionContext.getTenantId(), proxySessionContext.getKeyId());
         proxySessionContext.setSelfHealingEngine(engine);
         callInitActions(engine);
     }

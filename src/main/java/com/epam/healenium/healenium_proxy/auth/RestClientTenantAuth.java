@@ -10,10 +10,12 @@ import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.http.HttpResponse.BodyHandler;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Applies tenant + M2M headers to healenium-web {@link RestClient} calls (bypass Gateway).
+ * Applies tenant and key headers to healenium-web {@link RestClient} calls (bypass Gateway).
  */
 public final class RestClientTenantAuth {
 
@@ -21,12 +23,27 @@ public final class RestClientTenantAuth {
     }
 
     public static void apply(RestClient client, String tenantId) {
+        applySession(client, tenantId, null);
+    }
+
+    /**
+     * Sets {@code Healenium-Tenant-Id} and, when the session has a key, {@code Healenium-Key-Id} on every
+     * call the client makes. A null or blank key id sends no key header.
+     */
+    public static void applySession(RestClient client, String tenantId, String keyId) {
         if (client == null) {
             return;
         }
 
+        Map<String, String> headers = new LinkedHashMap<>();
         if (StringUtils.hasText(tenantId)) {
-            wrap(client, TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
+            headers.put(TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
+        }
+        if (StringUtils.hasText(keyId)) {
+            headers.put(TenantAuthGlobalFilter.KEY_ID_HEADER, keyId.trim());
+        }
+        if (!headers.isEmpty()) {
+            wrap(client, headers);
         }
     }
 
@@ -35,30 +52,28 @@ public final class RestClientTenantAuth {
         apply(client, tenantId);
     }
 
-    private static void wrap(RestClient client, String headerName, String headerValue) {
+    private static void wrap(RestClient client, Map<String, String> headers) {
         HttpClient serverClient = client.getServerHttpClient();
         if (serverClient != null) {
-            client.setServerHttpClient(new HeaderInjectingHttpClient(serverClient, headerName, headerValue));
+            client.setServerHttpClient(new HeaderInjectingHttpClient(serverClient, headers));
         }
         HttpClient aiClient = client.getAiServiceHttpClient();
         if (aiClient != null) {
-            client.setAiServiceHttpClient(new HeaderInjectingHttpClient(aiClient, headerName, headerValue));
+            client.setAiServiceHttpClient(new HeaderInjectingHttpClient(aiClient, headers));
         }
     }
 
     private static final class HeaderInjectingHttpClient implements HttpClient {
         private final HttpClient delegate;
-        private final String headerName;
-        private final String headerValue;
+        private final Map<String, String> headers;
 
-        private HeaderInjectingHttpClient(HttpClient delegate, String headerName, String headerValue) {
+        private HeaderInjectingHttpClient(HttpClient delegate, Map<String, String> headers) {
             this.delegate = delegate;
-            this.headerName = headerName;
-            this.headerValue = headerValue;
+            this.headers = headers;
         }
 
         private HttpRequest withHeader(HttpRequest request) {
-            request.setHeader(headerName, headerValue);
+            headers.forEach(request::setHeader);
             return request;
         }
 

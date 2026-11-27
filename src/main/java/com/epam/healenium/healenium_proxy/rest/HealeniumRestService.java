@@ -44,10 +44,10 @@ public class HealeniumRestService {
     private String playwrightServiceUrl;
 
     private WebClient.Builder backendClient(String tenantId) {
-        return backendClient(tenantId, false);
+        return backendClient(tenantId, null, false);
     }
 
-    private WebClient.Builder backendClient(String tenantId, boolean largeBuffer) {
+    private WebClient.Builder backendClient(String tenantId, String keyId, boolean largeBuffer) {
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(healeniumContainerUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
@@ -56,6 +56,9 @@ public class HealeniumRestService {
         }
         if (StringUtils.hasText(tenantId)) {
             builder.defaultHeader(TenantAuthGlobalFilter.TENANT_HEADER, tenantId.trim());
+        }
+        if (StringUtils.hasText(keyId)) {
+            builder.defaultHeader(TenantAuthGlobalFilter.KEY_ID_HEADER, keyId.trim());
         }
         return builder;
     }
@@ -71,9 +74,10 @@ public class HealeniumRestService {
     public void restoreSessionOnServer(URL addressOfRemoteServer,
                                        String sessionId,
                                        Map<String, Object> sessionCapabilities,
-                                       String tenantId) {
+                                       String tenantId,
+                                       String keyId) {
         SessionDto sessionDto = new SessionDto(addressOfRemoteServer, sessionId, sessionCapabilities);
-        backendClient(tenantId)
+        backendClient(tenantId, keyId, false)
                 .build()
                 .post()
                 .uri(HEALENIUM_SESSION_INIT_PATH)

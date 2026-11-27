@@ -29,7 +29,7 @@ public class IamAuthClient {
     private final Cache<String, CachedAuthResult> authCache;
     private final Clock clock;
 
-    public record CachedAuthResult(UUID tenantId, String role, String status, Instant expiresAt) {}
+    public record CachedAuthResult(UUID tenantId, UUID keyId, String role, String status, Instant expiresAt) {}
 
     @Autowired
     public IamAuthClient(WebClient.Builder webClientBuilder,
@@ -95,12 +95,20 @@ public class IamAuthClient {
     }
 
     public Mono<UUID> validateApiKey(String rawApiKey) {
+        return validateApiKeyDetails(rawApiKey).map(CachedAuthResult::tenantId);
+    }
+
+    /**
+     * Validates a key and returns the tenant together with the key id, which the proxy sends to
+     * healenium-backend so results are attributed to the key.
+     */
+    public Mono<CachedAuthResult> validateApiKeyDetails(String rawApiKey) {
         return validate("key", "apiKey", rawApiKey, "AUTOMATION", "IAM key validation failed");
     }
 
     @SuppressWarnings("unchecked")
-    private Mono<UUID> validate(String cachePrefix, String payloadKey, String rawValue,
-                                String defaultRole, String logLabel) {
+    private Mono<CachedAuthResult> validate(String cachePrefix, String payloadKey, String rawValue,
+                                            String defaultRole, String logLabel) {
         if (rawValue == null || rawValue.isBlank()) {
             return Mono.empty();
         }
@@ -110,7 +118,7 @@ public class IamAuthClient {
             if (cached.expiresAt() != null && !clock.instant().isBefore(cached.expiresAt())) {
                 authCache.invalidate(cacheKey);
             } else {
-                return Mono.just(cached.tenantId());
+                return Mono.just(cached);
             }
         }
 
@@ -126,9 +134,15 @@ public class IamAuthClient {
                     Object tenantIdObj = map.get("tenantId");
                     if (valid && tenantIdObj != null) {
                         UUID tenantId = UUID.fromString(tenantIdObj.toString());
+                        UUID keyId = map.get("keyId") != null ? UUID.fromString(map.get("keyId").toString()) : null;
                         String role = map.get("role") != null ? map.get("role").toString() : defaultRole;
-                        authCache.put(cacheKey, new CachedAuthResult(tenantId, role, "ACTIVE", null));
-                        return Mono.just(tenantId);
+                        // cacheSeconds is present only for a personal key; the entry lives for the smaller of it and the TTL
+                        Instant expiresAt = map.get("cacheSeconds") != null
+                                ? clock.instant().plusSeconds(Long.parseLong(map.get("cacheSeconds").toString()))
+                                : null;
+                        CachedAuthResult result = new CachedAuthResult(tenantId, keyId, role, "ACTIVE", expiresAt);
+                        authCache.put(cacheKey, result);
+                        return Mono.just(result);
                     }
                     return Mono.empty();
                 })

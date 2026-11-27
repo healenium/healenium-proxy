@@ -7,11 +7,13 @@ import com.epam.healenium.healenium_proxy.service.SessionContextService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.rewrite.ModifyResponseBodyGatewayFilterFactory;
+import org.springframework.cloud.gateway.filter.factory.rewrite.RewriteFunction;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpStatus;
@@ -161,7 +163,7 @@ class InitSessionGatewayFilterFactoryTest {
     @Test
     void testAuthEnabledRejectsWhenKeyInvalidInIam() {
         properties.getAuth().setEnabled(true);
-        when(iamAuthClient.validateApiKey("hlm_live_invalid")).thenReturn(Mono.empty());
+        when(iamAuthClient.validateApiKeyDetails("hlm_live_invalid")).thenReturn(Mono.empty());
 
         String body = """
                 {
@@ -188,7 +190,8 @@ class InitSessionGatewayFilterFactoryTest {
     void testAuthEnabledPassesWhenKeyValidInIam() {
         properties.getAuth().setEnabled(true);
         UUID expectedTenant = UUID.randomUUID();
-        when(iamAuthClient.validateApiKey("hlm_live_valid")).thenReturn(Mono.just(expectedTenant));
+        when(iamAuthClient.validateApiKeyDetails("hlm_live_valid"))
+                .thenReturn(Mono.just(new IamAuthClient.CachedAuthResult(expectedTenant, null, "AUTOMATION", "ACTIVE", null)));
 
         GatewayFilter mockRewrite = mock(GatewayFilter.class);
         when(mockRewrite.filter(any(), any())).thenReturn(Mono.empty());
@@ -213,7 +216,47 @@ class InitSessionGatewayFilterFactoryTest {
         StepVerifier.create(filter.filter(exchange, chain))
                 .verifyComplete();
 
-        verify(iamAuthClient).validateApiKey("hlm_live_valid");
+        verify(iamAuthClient).validateApiKeyDetails("hlm_live_valid");
         verify(mockRewrite).filter(any(), eq(chain));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testAuthEnabledStoresTheKeyIdInTheSessionContext() {
+        properties.getAuth().setEnabled(true);
+        UUID expectedTenant = UUID.randomUUID();
+        UUID expectedKey = UUID.randomUUID();
+        when(iamAuthClient.validateApiKeyDetails("hlm_live_personal"))
+                .thenReturn(Mono.just(new IamAuthClient.CachedAuthResult(expectedTenant, expectedKey, "AUTOMATION", "ACTIVE", null)));
+        GatewayFilter mockRewrite = mock(GatewayFilter.class);
+        when(mockRewrite.filter(any(), any())).thenReturn(Mono.empty());
+        when(modifyResponseBodyFilterFactory.apply(any(ModifyResponseBodyGatewayFilterFactory.Config.class)))
+                .thenReturn(mockRewrite);
+        when(sessionContextService.initSessionContext(anyString())).thenReturn(new ProxySessionContext());
+        String body = """
+                {
+                    "capabilities": {
+                        "alwaysMatch": {
+                            "hlm:api-key": "hlm_live_personal"
+                        }
+                    }
+                }
+                """;
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/session").body(body));
+
+        GatewayFilter filter = filterFactory.apply(new InitSessionGatewayFilterFactory.Config());
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+
+        ArgumentCaptor<ModifyResponseBodyGatewayFilterFactory.Config> config =
+                ArgumentCaptor.forClass(ModifyResponseBodyGatewayFilterFactory.Config.class);
+        verify(modifyResponseBodyFilterFactory).apply(config.capture());
+        RewriteFunction<String, String> rewrite = config.getValue().getRewriteFunction();
+        String sessionBody = "{\"sessionId\":\"session-1\"}";
+        Mono.from(rewrite.apply(exchange, sessionBody)).block();
+
+        ArgumentCaptor<ProxySessionContext> context = ArgumentCaptor.forClass(ProxySessionContext.class);
+        verify(sessionContextService).submitSessionContext(eq(sessionBody), context.capture());
+        assertEquals(expectedTenant.toString(), context.getValue().getTenantId());
+        assertEquals(expectedKey.toString(), context.getValue().getKeyId());
     }
 }

@@ -12,8 +12,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.UUID;
-
 /**
  * Pro-mode gateway for CI/CD traffic (spec 004, Requirement 5). Only the SDK endpoints in
  * {@link SdkEndpoints} are forwarded, and only with a valid {@code X-Api-Key}, which is validated by
@@ -28,6 +26,7 @@ import java.util.UUID;
 public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
 
     public static final String TENANT_HEADER = "Healenium-Tenant-Id";
+    public static final String KEY_ID_HEADER = "Healenium-Key-Id";
     public static final String API_KEY_HEADER = "X-Api-Key";
 
     private final IamAuthClient iamAuthClient;
@@ -63,8 +62,8 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
             log.warn("Missing X-Api-Key for {}", path);
             return reject(exchange, HttpStatus.UNAUTHORIZED);
         }
-        return iamAuthClient.validateApiKey(apiKey.trim())
-                .flatMap(tenantId -> forwardWithTenant(exchange, chain, tenantId).then(Mono.just(true)))
+        return iamAuthClient.validateApiKeyDetails(apiKey.trim())
+                .flatMap(auth -> forwardWithTenant(exchange, chain, auth).then(Mono.just(true)))
                 .switchIfEmpty(Mono.defer(() -> {
                     log.warn("Invalid X-Api-Key for {}", path);
                     return reject(exchange, HttpStatus.UNAUTHORIZED).then(Mono.just(false));
@@ -72,14 +71,19 @@ public class TenantAuthGlobalFilter implements GlobalFilter, Ordered {
                 .then();
     }
 
-    private Mono<Void> forwardWithTenant(ServerWebExchange exchange, GatewayFilterChain chain, UUID tenantId) {
+    private Mono<Void> forwardWithTenant(ServerWebExchange exchange, GatewayFilterChain chain,
+                                         IamAuthClient.CachedAuthResult auth) {
         ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                 .headers(headers -> {
                     headers.remove(HttpHeaders.AUTHORIZATION);
                     headers.remove(API_KEY_HEADER);
                     headers.remove(HttpHeaders.COOKIE);
                     headers.remove("X-Tenant-Id");
-                    headers.set(TENANT_HEADER, tenantId.toString());
+                    headers.remove(KEY_ID_HEADER);
+                    headers.set(TENANT_HEADER, auth.tenantId().toString());
+                    if (auth.keyId() != null) {
+                        headers.set(KEY_ID_HEADER, auth.keyId().toString());
+                    }
                 })
                 .build();
         return chain.filter(exchange.mutate().request(mutatedRequest).build());

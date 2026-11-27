@@ -102,7 +102,7 @@ public class InitSessionGatewayFilterFactory
 
                         if (!properties.getAuth().isEnabled()) {
                             // Open Source mode: permit session with default anonymous tenant
-                            return buildResponseRewrite(null).filter(mutatedExchange, chain);
+                            return buildResponseRewrite(null, null).filter(mutatedExchange, chain);
                         }
 
                         // Commercial mode: auth.enabled=true
@@ -111,10 +111,12 @@ public class InitSessionGatewayFilterFactory
                             return rejectSession(exchange);
                         }
 
-                        return iamAuthClient.validateApiKey(apiKey.trim())
-                                .flatMap(tenantId -> {
-                                    log.info("Session init authorized for tenant: {}", tenantId);
-                                    return buildResponseRewrite(tenantId.toString()).filter(mutatedExchange, chain)
+                        return iamAuthClient.validateApiKeyDetails(apiKey.trim())
+                                .flatMap(auth -> {
+                                    log.info("Session init authorized for tenant: {}", auth.tenantId());
+                                    String keyId = auth.keyId() != null ? auth.keyId().toString() : null;
+                                    return buildResponseRewrite(auth.tenantId().toString(), keyId)
+                                            .filter(mutatedExchange, chain)
                                             .then(Mono.just(true));
                                 })
                                 .switchIfEmpty(Mono.defer(() -> {
@@ -127,7 +129,7 @@ public class InitSessionGatewayFilterFactory
         return new OrderedGatewayFilter(filter, NettyWriteResponseFilter.WRITE_RESPONSE_FILTER_ORDER - 1);
     }
 
-    private GatewayFilter buildResponseRewrite(String preResolvedTenantId) {
+    private GatewayFilter buildResponseRewrite(String preResolvedTenantId, String preResolvedKeyId) {
         ModifyResponseBodyGatewayFilterFactory.Config responseConfig =
                 new ModifyResponseBodyGatewayFilterFactory.Config();
         responseConfig.setRewriteFunction(String.class, String.class, (swe, bodyAsString) -> {
@@ -153,6 +155,7 @@ public class InitSessionGatewayFilterFactory
             }
 
             proxySessionContext.setTenantId(tenantId);
+            proxySessionContext.setKeyId(preResolvedKeyId);
             
             Mono<TenantSettingsDto> settingsMono = (settingsClient != null && StringUtils.hasText(tenantId))
                     ? settingsClient.getSettingsReactive(tenantId)

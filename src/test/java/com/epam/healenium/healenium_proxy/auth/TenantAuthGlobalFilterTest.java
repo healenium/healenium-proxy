@@ -65,7 +65,9 @@ class TenantAuthGlobalFilterTest {
 
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
-        verify(chain).filter(exchange);
+        ArgumentCaptor<ServerWebExchange> forwarded = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(forwarded.capture());
+        assertEquals("/healenium-iam/users/me", forwarded.getValue().getRequest().getURI().getPath());
         verifyNoInteractions(iamAuthClient);
     }
 
@@ -119,7 +121,7 @@ class TenantAuthGlobalFilterTest {
 
     @Test
     void sdkPath_withAnInvalidKey_answers401() {
-        when(iamAuthClient.validateApiKey("hlm_live_bad")).thenReturn(Mono.empty());
+        when(iamAuthClient.validateApiKeyDetails("hlm_live_bad")).thenReturn(Mono.empty());
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/healenium/elements").header("X-Api-Key", "hlm_live_bad").build());
 
@@ -132,7 +134,7 @@ class TenantAuthGlobalFilterTest {
     @Test
     void sdkPath_withAValidKey_forwardsWithTheTenant_andStripsCredentials() {
         UUID tenant = UUID.randomUUID();
-        when(iamAuthClient.validateApiKey(KEY)).thenReturn(Mono.just(tenant));
+        when(iamAuthClient.validateApiKeyDetails(KEY)).thenReturn(Mono.just(auth(tenant, null)));
         when(chain.filter(any())).thenReturn(Mono.empty());
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/healenium/elements")
@@ -157,7 +159,7 @@ class TenantAuthGlobalFilterTest {
     @Test
     void aiSelectorPost_withAValidKey_isForwarded() {
         UUID tenant = UUID.randomUUID();
-        when(iamAuthClient.validateApiKey(KEY)).thenReturn(Mono.just(tenant));
+        when(iamAuthClient.validateApiKeyDetails(KEY)).thenReturn(Mono.just(auth(tenant, null)));
         when(chain.filter(any())).thenReturn(Mono.empty());
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.post("/healenium-ai/selectors/xpath").header("X-Api-Key", KEY).build());
@@ -166,6 +168,49 @@ class TenantAuthGlobalFilterTest {
 
         verify(chain).filter(any());
         assertFalse(exchange.getResponse().isCommitted());
+    }
+
+    @Test
+    void sdkPath_withAValidKey_setsTheKeyIdFromTheCache_andStripsAClientCopy() {
+        UUID tenant = UUID.randomUUID();
+        UUID keyId = UUID.randomUUID();
+        when(iamAuthClient.validateApiKeyDetails(KEY)).thenReturn(Mono.just(auth(tenant, keyId)));
+        when(chain.filter(any())).thenReturn(Mono.empty());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/healenium/elements")
+                        .header("X-Api-Key", KEY)
+                        .header(TenantAuthGlobalFilter.KEY_ID_HEADER, UUID.randomUUID().toString())
+                        .build());
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+
+        ArgumentCaptor<ServerWebExchange> forwarded = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(forwarded.capture());
+        HttpHeaders headers = forwarded.getValue().getRequest().getHeaders();
+        assertEquals(keyId.toString(), headers.getFirst(TenantAuthGlobalFilter.KEY_ID_HEADER));
+        assertEquals(1, headers.get(TenantAuthGlobalFilter.KEY_ID_HEADER).size());
+    }
+
+    @Test
+    void sdkPath_withATenantOnlyResult_sendsNoKeyIdHeader_evenWhenTheClientSendsOne() {
+        UUID tenant = UUID.randomUUID();
+        when(iamAuthClient.validateApiKeyDetails(KEY)).thenReturn(Mono.just(auth(tenant, null)));
+        when(chain.filter(any())).thenReturn(Mono.empty());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/healenium/elements")
+                        .header("X-Api-Key", KEY)
+                        .header(TenantAuthGlobalFilter.KEY_ID_HEADER, "forged-key-id")
+                        .build());
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+
+        ArgumentCaptor<ServerWebExchange> forwarded = ArgumentCaptor.forClass(ServerWebExchange.class);
+        verify(chain).filter(forwarded.capture());
+        assertNull(forwarded.getValue().getRequest().getHeaders().getFirst(TenantAuthGlobalFilter.KEY_ID_HEADER));
+    }
+
+    private static IamAuthClient.CachedAuthResult auth(UUID tenant, UUID keyId) {
+        return new IamAuthClient.CachedAuthResult(tenant, keyId, "AUTOMATION", "ACTIVE", null);
     }
 
     private void assertNotServed(String path) {

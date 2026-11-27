@@ -10,9 +10,14 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class IamAuthClientTest {
 
@@ -89,6 +94,100 @@ class IamAuthClientTest {
 
         StepVerifier.create(iamAuthClient.validateApiKey("hlm_live_keep-me")).expectNext(tenantId).verifyComplete();
         assertEquals(1, mockWebServer.getRequestCount());
+    }
+
+    @Test
+    void personalKey_isCachedForTheSmallerOfCacheSecondsAndTheProxyTtl() {
+        MutableClock clock = new MutableClock();
+        IamAuthClient client = new IamAuthClient(WebClient.builder(), mockWebServer.url("/").toString(), 300, 1000, clock);
+        enqueueValid(UUID.randomUUID(), UUID.randomUUID(), 60);
+        enqueueValid(UUID.randomUUID(), UUID.randomUUID(), 60);
+
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_personal")).expectNextCount(1).verifyComplete();
+        clock.advanceSeconds(59);
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_personal")).expectNextCount(1).verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount(), "inside cacheSeconds the entry is served from the cache");
+
+        clock.advanceSeconds(2);
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_personal")).expectNextCount(1).verifyComplete();
+        assertEquals(2, mockWebServer.getRequestCount(), "after cacheSeconds the key is validated again");
+    }
+
+    @Test
+    void personalKey_withCacheSecondsAboveTheProxyTtl_isCachedForTheProxyTtl() {
+        MutableClock clock = new MutableClock();
+        IamAuthClient client = new IamAuthClient(WebClient.builder(), mockWebServer.url("/").toString(), 300, 1000, clock);
+        enqueueValid(UUID.randomUUID(), UUID.randomUUID(), 600);
+        enqueueValid(UUID.randomUUID(), UUID.randomUUID(), 600);
+
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_long")).expectNextCount(1).verifyComplete();
+        clock.advanceSeconds(299);
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_long")).expectNextCount(1).verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount());
+
+        clock.advanceSeconds(2);
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_long")).expectNextCount(1).verifyComplete();
+        assertEquals(2, mockWebServer.getRequestCount(), "the proxy TTL caps the entry, not cacheSeconds");
+    }
+
+    @Test
+    void projectKey_withoutCacheSeconds_keepsTheProxyTtl_andCachesTheKeyId() {
+        MutableClock clock = new MutableClock();
+        IamAuthClient client = new IamAuthClient(WebClient.builder(), mockWebServer.url("/").toString(), 300, 1000, clock);
+        UUID keyId = UUID.randomUUID();
+        enqueueValid(UUID.randomUUID(), keyId, null);
+
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_project"))
+                .assertNext(auth -> assertEquals(keyId, auth.keyId()))
+                .verifyComplete();
+        clock.advanceSeconds(299);
+        StepVerifier.create(client.validateApiKeyDetails("hlm_live_project"))
+                .assertNext(auth -> assertEquals(keyId, auth.keyId(), "the cached result keeps the key id"))
+                .verifyComplete();
+        assertEquals(1, mockWebServer.getRequestCount());
+    }
+
+    @Test
+    void aKeyWithoutKeyId_isCachedWithANullKeyId() {
+        UUID tenantId = UUID.randomUUID();
+        mockWebServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json")
+                .setBody(String.format("{\"valid\": true, \"tenantId\": \"%s\", \"role\": \"AUTOMATION\"}", tenantId)));
+
+        StepVerifier.create(iamAuthClient.validateApiKeyDetails("hlm_live_old-iam"))
+                .assertNext(auth -> {
+                    assertEquals(tenantId, auth.tenantId());
+                    assertNull(auth.keyId());
+                })
+                .verifyComplete();
+    }
+
+    private void enqueueValid(UUID tenantId, UUID keyId, Integer cacheSeconds) {
+        String body = String.format("{\"valid\": true, \"tenantId\": \"%s\", \"role\": \"AUTOMATION\", \"keyId\": \"%s\"%s}",
+                tenantId, keyId, cacheSeconds == null ? "" : ", \"cacheSeconds\": " + cacheSeconds);
+        mockWebServer.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(body));
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant now = Instant.parse("2026-01-01T00:00:00Z");
+
+        void advanceSeconds(long seconds) {
+            now = now.plusSeconds(seconds);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
     }
 
     private static String sha256Hex(String input) throws RuntimeException {
